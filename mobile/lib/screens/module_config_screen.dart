@@ -29,9 +29,12 @@ class _ModuleConfigScreenState extends State<ModuleConfigScreen> {
   int _selectedExampleIndex = 0;
   int _selectedCommandIndex = 0;
   int _selectedTabIndex = 0;
-  String _smsStatusText = 'Aucun SMS envoye';
-  List<SmsMessageData> _smsConversation = [];
+  String? _lastSmsResponse;
+  String? _smsStatus;
+  bool _smsSent = false;
   StreamSubscription<SmsMessage>? _smsSubscription;
+  bool _isDataValid = true;
+  String _validationMessage = '';
 
   String _normalizePhone(String input) {
     final trimmed = input.trim();
@@ -150,15 +153,8 @@ class _ModuleConfigScreenState extends State<ModuleConfigScreen> {
           final body = message.body ?? '';
           final timestamp = DateTime.now();
 
-          final receivedMsg = SmsMessageData(
-            phoneNumber: sender,
-            message: body,
-            timestamp: timestamp,
-            isSent: false,
-          );
-
           setState(() {
-            _smsConversation.add(receivedMsg);
+            _lastSmsResponse = body;
           });
 
           ScaffoldMessenger.of(context).showSnackBar(
@@ -204,9 +200,57 @@ class _ModuleConfigScreenState extends State<ModuleConfigScreen> {
     _equipmentController.text = (ex['EquipmentType'] ?? '').trim();
     _passwordController.text = (ex['PasswordDevice'] ?? '').trim();
     _phoneController.text = _simController.text;
+
+    _validateData();
+
     if (notify && mounted) {
       setState(() {});
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              Icon(
+                _isDataValid ? Icons.check_circle : Icons.warning,
+                color: Colors.white,
+              ),
+              const SizedBox(width: 8),
+              Expanded(child: Text(_validationMessage)),
+            ],
+          ),
+          backgroundColor:
+              _isDataValid ? const Color(0xFF2ECC71) : Colors.orange,
+          duration: const Duration(seconds: 3),
+        ),
+      );
     }
+  }
+
+  void _validateData() {
+    final serial = _serialController.text.trim();
+    final sim = _simController.text.trim();
+    final equipment = _equipmentController.text.trim();
+
+    if (serial.isEmpty || equipment.isEmpty) {
+      _isDataValid = false;
+      _validationMessage =
+          'DonnÃ©es invalides: SerialNumber et EquipmentType requis';
+      return;
+    }
+
+    if (serial.length < 5) {
+      _isDataValid = false;
+      _validationMessage = 'DonnÃ©es invalides: SerialNumber trop court';
+      return;
+    }
+
+    if (sim.isEmpty || sim == ' ') {
+      _isDataValid = false;
+      _validationMessage = 'Attention: SIMCardNumber manquant';
+      return;
+    }
+
+    _isDataValid = true;
+    _validationMessage = 'DonnÃ©es valides';
   }
 
   void _applyTestCommand(int index) {
@@ -266,40 +310,17 @@ class _ModuleConfigScreenState extends State<ModuleConfigScreen> {
     final smsBody =
         isTestCommand ? _buildTestCommandMessage() : _buildSmsMessage();
 
-    final sentMsg = SmsMessageData(
-      phoneNumber: targetPhone,
-      message: smsBody,
-      timestamp: DateTime.now(),
-      isSent: true,
-    );
     setState(() {
-      _smsConversation.add(sentMsg);
+      _lastSmsResponse = null;
+      _smsStatus = 'Envoi en cours...';
+      _smsSent = false;
     });
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text('SMS envoye!',
-                style: TextStyle(fontWeight: FontWeight.bold)),
-            const SizedBox(height: 4),
-            Text(smsBody, style: const TextStyle(fontSize: 12)),
-          ],
-        ),
-        backgroundColor: const Color(0xFF0C4D7A),
-        duration: const Duration(seconds: 3),
-      ),
-    );
-
     if (!Platform.isAndroid) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Envoi SMS direct disponible seulement sur Android'),
-          backgroundColor: Colors.redAccent,
-        ),
-      );
+      setState(() {
+        _smsStatus = 'Erreur: Android uniquement';
+        _smsSent = false;
+      });
       return;
     }
 
@@ -309,56 +330,20 @@ class _ModuleConfigScreenState extends State<ModuleConfigScreen> {
       final canSendSms = await _telephony.isSmsCapable;
       if (canSendSms != true) {
         if (!mounted) return;
-        final failMsg = SmsMessageData(
-          phoneNumber: targetPhone,
-          message: 'Echec: Telephone non compatible SMS',
-          timestamp: DateTime.now(),
-          isSent: false,
-          isStatus: true,
-          isDelivered: false,
-        );
         setState(() {
-          _smsConversation.add(failMsg);
+          _smsStatus = 'Erreur: Telephone non compatible';
+          _smsSent = false;
         });
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Ce telephone ne supporte pas l envoi SMS'),
-            backgroundColor: Colors.redAccent,
-          ),
-        );
         return;
       }
 
       final hasPermission = await _telephony.requestSmsPermissions;
       if (hasPermission != true) {
-        final opened = await _openSmsAppFallback(
-          phone: targetPhone,
-          message: smsBody,
-        );
         if (!mounted) return;
-        final permMsg = SmsMessageData(
-          phoneNumber: targetPhone,
-          message: opened
-              ? 'Permission refusee - Ouverture app Messages'
-              : 'Permission refusee',
-          timestamp: DateTime.now(),
-          isSent: false,
-          isStatus: true,
-          isDelivered: false,
-        );
         setState(() {
-          _smsConversation.add(permMsg);
+          _smsStatus = 'Erreur: Permission refusee';
+          _smsSent = false;
         });
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              opened
-                  ? 'Permission SMS refusee. Ouverture de l app Messages.'
-                  : 'Permission SMS refusee. Activez-la dans les parametres.',
-            ),
-            backgroundColor: opened ? Colors.orange : Colors.redAccent,
-          ),
-        );
         return;
       }
 
@@ -370,107 +355,46 @@ class _ModuleConfigScreenState extends State<ModuleConfigScreen> {
           statusListener: (status) {
             if (!mounted) return;
 
-            String statusText;
-            Color statusColor;
-            bool delivered;
-
             switch (status) {
               case SendStatus.DELIVERED:
-                statusText = 'SMS livre';
-                statusColor = const Color(0xFF2ECC71);
-                delivered = true;
+                setState(() {
+                  _smsStatus = 'SMS livre avec succes';
+                  _smsSent = true;
+                });
                 break;
               case SendStatus.SENT:
-                statusText = 'SMS envoye';
-                statusColor = const Color(0xFF3498DB);
-                delivered = false;
+                setState(() {
+                  _smsStatus = 'SMS envoye - En attente de reponse';
+                  _smsSent = true;
+                });
                 break;
               default:
-                statusText = 'Envoi en cours...';
-                statusColor = Colors.orange;
-                delivered = false;
+                setState(() {
+                  _smsStatus = 'Envoi en cours...';
+                  _smsSent = false;
+                });
             }
-
-            setState(() => _smsStatusText = '$statusText vers $targetPhone');
-
-            final statusMsg = SmsMessageData(
-              phoneNumber: targetPhone,
-              message: statusText,
-              timestamp: DateTime.now(),
-              isSent: false,
-              isStatus: true,
-              isDelivered: delivered,
-            );
-            setState(() {
-              _smsConversation.add(statusMsg);
-            });
-
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(_smsStatusText),
-                backgroundColor: statusColor,
-                duration: Duration(seconds: delivered ? 3 : 2),
-              ),
-            );
           },
         );
-      } catch (_) {
-        await _telephony.sendSmsByDefaultApp(to: targetPhone, message: smsBody);
+
         if (!mounted) return;
-        setState(() =>
-            _smsStatusText = 'Ouverture app SMS par defaut vers $targetPhone');
-
-        final fallbackMsg = SmsMessageData(
-          phoneNumber: targetPhone,
-          message: 'Ouverture app SMS par defaut',
-          timestamp: DateTime.now(),
-          isSent: false,
-          isStatus: true,
-          isDelivered: false,
-        );
         setState(() {
-          _smsConversation.add(fallbackMsg);
+          _smsStatus = 'SMS envoye - En attente de reponse';
+          _smsSent = true;
         });
-
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(_smsStatusText),
-            backgroundColor: Colors.orange,
-          ),
-        );
-        return;
+      } catch (e) {
+        if (!mounted) return;
+        setState(() {
+          _smsStatus = 'Erreur: Echec envoi SMS';
+          _smsSent = false;
+        });
       }
-
-      if (!mounted) return;
-      setState(() => _smsStatusText = 'Envoi en cours vers $targetPhone');
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-              'Commande envoyee vers $targetPhone - Attendez la reponse...'),
-          backgroundColor: const Color(0xFF3498DB),
-        ),
-      );
     } catch (e) {
       if (!mounted) return;
-
-      final errorMsg = SmsMessageData(
-        phoneNumber: targetPhone,
-        message: 'Erreur: $e',
-        timestamp: DateTime.now(),
-        isSent: false,
-        isStatus: true,
-        isDelivered: false,
-      );
       setState(() {
-        _smsConversation.add(errorMsg);
+        _smsStatus = 'Erreur: $e';
+        _smsSent = false;
       });
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Echec envoi SMS: $e'),
-          backgroundColor: Colors.redAccent,
-        ),
-      );
     } finally {
       if (mounted) {
         setState(() => _isSending = false);
@@ -478,9 +402,10 @@ class _ModuleConfigScreenState extends State<ModuleConfigScreen> {
     }
   }
 
-  void _clearConversation() {
+  void _clearResponse() {
     setState(() {
-      _smsConversation.clear();
+      _lastSmsResponse = null;
+      _smsStatus = null;
     });
   }
 
@@ -525,103 +450,103 @@ class _ModuleConfigScreenState extends State<ModuleConfigScreen> {
         child: SafeArea(
           child: Column(
             children: [
-              Expanded(
-                flex: 2,
-                child: Container(
+              if (_smsStatus != null)
+                Container(
                   margin: const EdgeInsets.all(12),
+                  padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.95),
-                    borderRadius: BorderRadius.circular(16),
+                    color: _smsSent
+                        ? const Color(0xFF3498DB).withOpacity(0.95)
+                        : Colors.orange.withOpacity(0.95),
+                    borderRadius: BorderRadius.circular(10),
                     boxShadow: [
                       BoxShadow(
                         color: Colors.black.withOpacity(0.1),
-                        blurRadius: 10,
-                        offset: const Offset(0, 4),
+                        blurRadius: 6,
+                        offset: const Offset(0, 2),
                       ),
                     ],
                   ),
-                  child: Column(
+                  child: Row(
                     children: [
-                      Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: const BoxDecoration(
-                          color: Color(0xFF0C4D7A),
-                          borderRadius: BorderRadius.only(
-                            topLeft: Radius.circular(16),
-                            topRight: Radius.circular(16),
+                      Icon(
+                        _smsSent ? Icons.check_circle : Icons.error_outline,
+                        color: Colors.white,
+                        size: 20,
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          _smsStatus!,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w500,
+                            fontSize: 13,
                           ),
                         ),
-                        child: Row(
-                          children: [
-                            const Icon(Icons.chat_bubble,
-                                color: Colors.white, size: 20),
-                            const SizedBox(width: 8),
-                            const Text(
-                              'Conversation SMS',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 16,
-                              ),
-                            ),
-                            const Spacer(),
-                            if (_smsConversation.isNotEmpty)
-                              IconButton(
-                                icon: const Icon(Icons.delete_outline,
-                                    color: Colors.white70, size: 20),
-                                onPressed: _clearConversation,
-                                tooltip: 'Effacer la conversation',
-                              ),
-                          ],
-                        ),
                       ),
-                      Expanded(
-                        child: _smsConversation.isEmpty
-                            ? Center(
-                                child: Column(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    Icon(
-                                      Icons.sms_outlined,
-                                      size: 60,
-                                      color: Colors.grey.shade400,
-                                    ),
-                                    const SizedBox(height: 12),
-                                    Text(
-                                      'Aucun message',
-                                      style: TextStyle(
-                                        color: Colors.grey.shade500,
-                                        fontSize: 16,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 4),
-                                    Text(
-                                      'Envoyez une commande pour demarrer',
-                                      style: TextStyle(
-                                        color: Colors.grey.shade400,
-                                        fontSize: 12,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              )
-                            : ListView.builder(
-                                padding: const EdgeInsets.all(12),
-                                itemCount: _smsConversation.length,
-                                itemBuilder: (context, index) {
-                                  final msg = _smsConversation[index];
-                                  return _buildSmsBubble(msg);
-                                },
-                              ),
+                      IconButton(
+                        icon: const Icon(Icons.close,
+                            color: Colors.white, size: 18),
+                        onPressed: () => setState(() => _smsStatus = null),
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
                       ),
                     ],
                   ),
                 ),
-              ),
+              if (_lastSmsResponse != null)
+                Container(
+                  margin: const EdgeInsets.all(12),
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF2ECC71).withOpacity(0.95),
+                    borderRadius: BorderRadius.circular(12),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.1),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.message, color: Colors.white, size: 24),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Réponse GPS reçue:',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 14,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              _lastSmsResponse!,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 13,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.close, color: Colors.white),
+                        onPressed: _clearResponse,
+                      ),
+                    ],
+                  ),
+                ),
               Expanded(
-                flex: 3,
                 child: SingleChildScrollView(
-                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                  padding: const EdgeInsets.all(16),
                   child: Container(
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
@@ -712,119 +637,6 @@ class _ModuleConfigScreenState extends State<ModuleConfigScreen> {
         ),
       ),
     );
-  }
-
-  Widget _buildSmsBubble(SmsMessageData msg) {
-    final isSent = msg.isSent;
-    final isStatus = msg.isStatus;
-
-    if (isStatus) {
-      return Padding(
-        padding: const EdgeInsets.only(bottom: 8),
-        child: Center(
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-            decoration: BoxDecoration(
-              color: msg.isDelivered
-                  ? const Color(0xFF2ECC71).withOpacity(0.2)
-                  : Colors.orange.withOpacity(0.2),
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  msg.isDelivered ? Icons.check_circle : Icons.access_time,
-                  color:
-                      msg.isDelivered ? const Color(0xFF2ECC71) : Colors.orange,
-                  size: 16,
-                ),
-                const SizedBox(width: 6),
-                Text(
-                  msg.message,
-                  style: TextStyle(
-                    color: msg.isDelivered
-                        ? const Color(0xFF2ECC71)
-                        : Colors.orange.shade800,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-                const SizedBox(width: 6),
-                Text(
-                  _formatTime(msg.timestamp),
-                  style: TextStyle(
-                    color: msg.isDelivered
-                        ? const Color(0xFF2ECC71).withOpacity(0.7)
-                        : Colors.orange.shade600,
-                    fontSize: 10,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      );
-    }
-
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Row(
-        mainAxisAlignment:
-            isSent ? MainAxisAlignment.end : MainAxisAlignment.start,
-        children: [
-          Container(
-            constraints: BoxConstraints(
-              maxWidth: MediaQuery.of(context).size.width * 0.7,
-            ),
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-            decoration: BoxDecoration(
-              color: isSent ? const Color(0xFF0C4D7A) : const Color(0xFFE8E8E8),
-              borderRadius: BorderRadius.only(
-                topLeft: const Radius.circular(18),
-                topRight: const Radius.circular(18),
-                bottomLeft: Radius.circular(isSent ? 18 : 4),
-                bottomRight: Radius.circular(isSent ? 4 : 18),
-              ),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  msg.message,
-                  style: TextStyle(
-                    color: isSent ? Colors.white : Colors.black87,
-                    fontSize: 14,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      _formatTime(msg.timestamp),
-                      style: TextStyle(
-                        color: isSent ? Colors.white70 : Colors.grey.shade500,
-                        fontSize: 10,
-                      ),
-                    ),
-                    if (isSent) ...[
-                      const SizedBox(width: 4),
-                      const Icon(Icons.done_all,
-                          color: Colors.white70, size: 14),
-                    ],
-                  ],
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  String _formatTime(DateTime time) {
-    return '${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}';
   }
 
   Widget _buildConfigTab() {
@@ -1013,22 +825,4 @@ class _ModuleConfigScreenState extends State<ModuleConfigScreen> {
       ),
     );
   }
-}
-
-class SmsMessageData {
-  final String phoneNumber;
-  final String message;
-  final DateTime timestamp;
-  final bool isSent;
-  final bool isStatus;
-  final bool isDelivered;
-
-  SmsMessageData({
-    required this.phoneNumber,
-    required this.message,
-    required this.timestamp,
-    required this.isSent,
-    this.isStatus = false,
-    this.isDelivered = false,
-  });
 }
