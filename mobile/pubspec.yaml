@@ -1,0 +1,45 @@
+name: gps_field_assist_mobile
+description: Application mobile pour GPS Field Assist
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: ">=3.0.0 <4.0.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  http: ^1.1.0
+  image_picker: ^1.0.4
+  shared_preferences: ^2.2.2
+  url_launcher: ^6.2.2
+  telephony:
+    path: third_party/telephony
+  syncfusion_flutter_pdfviewer: ^32.2.7
+  path_provider: ^2.1.2
+  flutter_launcher_icons: ^0.14.4
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter_launcher_icons:
+  android: true
+  ios: true
+  remove_alpha_ios: true
+  image_path: "assets/icon/logo.jpeg"
+flutter:
+  uses-material-design: true
+  
+  assets:
+    - assets/logoTunav.png
+    - assets/logoTunavBlanc.png
+    - assets/fond tunav.jpg
+    - assets/modules_gps/Camtrack.png
+    - assets/modules_gps/ET8_KIT.png
+    - assets/modules_gps/ET6_KIT.png
+    - assets/modules_gps/ETX_KIT.png
+    - assets/modules_gps/ETBLE_KIT.png
+    - assets/modules_gps/ETCAN_KIT.png
+    - pdfs_modules/

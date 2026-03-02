@@ -1,0 +1,19 @@
+{
+    "CodeGPT.apiKey":  "Claude Code",
+    "sqltools.connections":  [
+                                 {
+                                     "ssh":  "Disabled",
+                                     "previewLimit":  50,
+                                     "server":  "192.168.43.90",
+                                     "port":  5432,
+                                     "driver":  "PostgreSQL",
+                                     "name":  "cnx_gps",
+                                     "database":  "tunav_gps_tracking_db",
+                                     "username":  "postgres",
+                                     "password":  ""
+                                 }
+                             ],
+    "files.encoding":  "utf8",
+    "files.autoGuessEncoding":  false,
+    "files.eol":  "\n"
+}
