@@ -79,7 +79,8 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
       setState(() => _isUploading = false);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-            content: Text('Erreur upload: $e'), backgroundColor: Colors.red),
+            content: Text('Erreur upload: $e'),
+            backgroundColor: const Color(0xFFDC143C)),
       );
     }
   }
@@ -169,7 +170,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                                             color: Colors.white70))),
                                 IconButton(
                                   icon: const Icon(Icons.close,
-                                      color: Colors.red, size: 20),
+                                      color: Color(0xFFDC143C), size: 20),
                                   onPressed: () => setState(
                                       () => _selectedFiles.remove(file)),
                                 ),
@@ -239,13 +240,14 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                                       SnackBar(
                                           content:
                                               Text('Erreur suppression: $e'),
-                                          backgroundColor: Colors.red),
+                                          backgroundColor:
+                                              const Color(0xFFDC143C)),
                                     );
                                   }
                                 },
                                 child: Container(
                                   decoration: BoxDecoration(
-                                      color: Colors.red,
+                                      color: const Color(0xFFDC143C),
                                       shape: BoxShape.circle),
                                   padding: const EdgeInsets.all(4),
                                   child: const Icon(Icons.close,

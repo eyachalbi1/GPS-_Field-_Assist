@@ -2,8 +2,12 @@ from fastapi import APIRouter, UploadFile, File, HTTPException, Request
 from typing import List
 import os
 from uuid import uuid4
+import httpx
 
 router = APIRouter()
+
+# External API URL for assets
+EXTERNAL_FILES_API = "http://41.226.24.13:5000/api/files"
 
 UPLOAD_FOLDER = os.path.join(os.getcwd(), 'static', 'uploads')
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
@@ -69,3 +73,17 @@ async def delete_task_media(task_id: str, filename: str):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
     return {"success": True}
+
+
+@router.get("/")
+async def get_files():
+    """Fetch files/assets from external API"""
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            response = await client.get(EXTERNAL_FILES_API)
+            if response.status_code == 200:
+                return response.json()
+            else:
+                return {"files": [], "error": f"External API returned {response.status_code}"}
+    except Exception as e:
+        return {"files": [], "error": str(e)}

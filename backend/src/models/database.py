@@ -21,9 +21,12 @@ DB_CONFIG = {
 def get_db():
     return psycopg2.connect(**DB_CONFIG, cursor_factory=RealDictCursor)
 
+def get_db_connection():
+    return psycopg2.connect(**DB_CONFIG)
+
 def init_users_table():
     with get_db() as conn:
-        with conn.cursor() as cursor:            # Create tables only if missing to avoid deleting existing users.
+        with conn.cursor() as cursor:
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS users (
                     id SERIAL PRIMARY KEY,
@@ -34,7 +37,6 @@ def init_users_table():
                 )
             """)
 
-            # Créer la table des tâches
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS tasks (
                     id SERIAL PRIMARY KEY,
@@ -57,7 +59,6 @@ def init_users_table():
                 ON CONFLICT (username) DO NOTHING
             """, ("admin", admin_password, "admin"))
 
-            # Insérer des tâches de test
             cursor.execute("""
                 INSERT INTO tasks (reference, name, description, partner_name, start_time, end_time, status, user_id)
                 SELECT 'REF-001', 'Installation GPS', 'Installation GPS véhicule client A', 'Partenaire Alpha', '12h', '13h', 'a_faire', id FROM users WHERE username = 'admin'
@@ -100,6 +101,7 @@ def update_task_status_db(task_id: str, status: str, user_id: int):
                 SET status = %s
                 WHERE id = %s AND user_id = %s
             """, (status, task_id, user_id))
+            conn.commit()
             return cursor.rowcount > 0
 
 def get_all_users():
@@ -154,5 +156,3 @@ def add_user(username: str, password: str, role: str):
             """, (username, hashed_password, role))
             conn.commit()
             return cursor.rowcount > 0
-
-

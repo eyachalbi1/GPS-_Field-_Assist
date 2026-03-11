@@ -1,29 +1,18 @@
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'screens/login_screen.dart';
 import 'utils/config.dart';
+import 'services/gps_device_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   // Charger la configuration du serveur au démarrage
-  await loadServerConfig();
+  // Utiliser Config.loadConfig() qui charge correctement server_url
+  await Config.loadConfig();
+  // Start background refresh of GPS devices so app data stays in sync
+  GpsDeviceService.startAutoRefresh();
 
   runApp(const MyApp());
-}
-
-Future<void> loadServerConfig() async {
-  try {
-    final prefs = await SharedPreferences.getInstance();
-    final savedIp = prefs.getString('server_ip');
-    final savedPort = prefs.getString('server_port') ?? '8000';
-
-    if (savedIp != null && savedIp.isNotEmpty) {
-      Config.setCustomUrl('http://$savedIp:$savedPort');
-    }
-  } catch (e) {
-    // Utiliser la config par défaut en cas d'erreur
-  }
 }
 
 class MyApp extends StatelessWidget {

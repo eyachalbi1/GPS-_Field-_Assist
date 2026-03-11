@@ -37,7 +37,7 @@ echo ============================================================
 echo.
 
 :: Installer le service avec uvicorn (gunicorn ne fonctionne pas sur Windows!)
-nssm install GPSFieldAssist "C:\Users\Asus\AppData\Local\Programs\Python\Python313\python.exe" "-m uvicorn main:app --host 0.0.0.0 --port 8000"
+nssm install GPSFieldAssist "c:\1.0\backend\venv\Scripts\python.exe" "-m uvicorn main:app --host 0.0.0.0 --port 8000"
 
 :: Configurer le repertoire de travail
 nssm set GPSFieldAssist AppDirectory "%CD%"

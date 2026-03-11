@@ -19,8 +19,17 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Initialiser la table users
+# Initialiser les tables
 init_users_table()
+
+# Endpoint de santé pour vérifier que le serveur fonctionne
+@app.get("/")
+async def root():
+    return {"status": "ok", "message": "GPS Field Assist Server is running"}
+
+@app.get("/health")
+async def health_check():
+    return {"status": "healthy", "service": "GPS Field Assist"}
 
 # Routes d'authentification
 app.include_router(auth_router, prefix="/api/auth", tags=["Auth"])
@@ -33,7 +42,5 @@ app.include_router(tasks_router, prefix="/api/tasks", tags=["Tasks"])
 
 # Servir les fichiers statiques (PDFs, images uploaded)
 app.mount("/static", StaticFiles(directory="static"), name="static")
-# Also expose uploads directly at /uploads for compatibility with existing links
 app.mount("/uploads", StaticFiles(directory=os.path.join("static", "uploads")), name="uploads")
-# Expose module images directory for easy access (place module images under backend/static/modules)
 app.mount("/modules", StaticFiles(directory=os.path.join("static", "modules")), name="modules")

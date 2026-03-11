@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'module_config_screen.dart';
 import '../services/gps_device_service.dart';
@@ -13,54 +15,89 @@ class _DiagnosticScreenState extends State<DiagnosticScreen> {
   final _searchController = TextEditingController();
   String _selectedSection = 'update';
   List<_GpsModule> _modules = [];
-  List<_GpsModule> _apiModules = [];
   bool _isLoading = false;
   String? _errorMessage;
-
-  static const List<_GpsModule> _staticModules = [
-    _GpsModule(name: 'Module GPS-001', subtitle: 'Mise a jour du firmware'),
-    _GpsModule(name: 'Module GPS-002', subtitle: 'Mise a jour du firmware'),
-    _GpsModule(name: 'Module GPS-003', subtitle: 'Mise a jour du firmware'),
-    _GpsModule(name: 'Module GPS-004', subtitle: 'Mise a jour du firmware'),
-  ];
+  Timer? _modulesRefreshTimer;
+  StreamSubscription<List<GpsDevice>>? _devicesSubscription;
 
   @override
   void initState() {
     super.initState();
     _loadModules();
+    _startModulesAutoRefresh();
+    _devicesSubscription = GpsDeviceService.devicesStream.listen((devices) {
+      if (!mounted) return;
+      final apiGpsModules = devices.map((device) {
+        return _GpsModule(
+          name: device.serialNumber,
+          subtitle: 'Type: ${device.equipmentType}',
+          serialNumber: device.serialNumber,
+          simCardNumber: device.simCardNumber,
+          equipmentType: device.equipmentType,
+          passwordDevice: device.passwordDevice,
+        );
+      }).toList();
+      setState(() {
+        _modules = apiGpsModules;
+        _errorMessage = apiGpsModules.isEmpty
+            ? 'Aucune donnee disponible depuis l API.'
+            : null;
+      });
+    });
   }
 
   @override
   void dispose() {
+    _modulesRefreshTimer?.cancel();
+    _devicesSubscription?.cancel();
     _searchController.dispose();
     super.dispose();
   }
 
-  Future<void> _loadModules() async {
-    setState(() {
-      _isLoading = true;
-      _errorMessage = null;
-    });
+  void _startModulesAutoRefresh() {
+    _modulesRefreshTimer?.cancel();
+    _modulesRefreshTimer = Timer.periodic(
+      const Duration(seconds: 15),
+      (_) => _loadModules(silent: true),
+    );
+  }
+
+  Future<void> _loadModules({bool silent = false}) async {
+    if (!silent) {
+      setState(() {
+        _isLoading = true;
+        _errorMessage = null;
+      });
+    }
 
     try {
-      final gpsDeviceService = GpsDeviceService();
-      final apiModules = await gpsDeviceService.fetchGpsModules();
+      // Get full device data from service
+      final devices = await GpsDeviceService.fetchDevices();
 
-      // Convert API modules to _GpsModule format
-      final apiGpsModules = apiModules
-          .map((module) =>
-              _GpsModule(name: module.name, subtitle: module.subtitle))
-          .toList();
+      final apiGpsModules = devices.map((device) {
+        return _GpsModule(
+          name: device.serialNumber,
+          subtitle: 'Type: ${device.equipmentType}',
+          serialNumber: device.serialNumber,
+          simCardNumber: device.simCardNumber,
+          equipmentType: device.equipmentType,
+          passwordDevice: device.passwordDevice,
+        );
+      }).toList();
 
+      if (!mounted) return;
       setState(() {
-        _apiModules = apiGpsModules;
-        _modules = _apiModules; // Only show API modules
+        _modules = apiGpsModules;
+        _errorMessage = apiGpsModules.isEmpty
+            ? 'Aucune donnee disponible depuis l API.'
+            : null;
         _isLoading = false;
       });
     } catch (e) {
+      if (!mounted) return;
       setState(() {
         _errorMessage = 'Erreur: $e';
-        _modules = _staticModules; // Fallback to static modules
+        _modules = [];
         _isLoading = false;
       });
     }
@@ -70,6 +107,80 @@ class _DiagnosticScreenState extends State<DiagnosticScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
           content: Text('Scanner QR ouvert'), backgroundColor: Colors.blue),
+    );
+  }
+
+  // Show details popup for a module
+  void _showModuleDetails(_GpsModule module) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: const Color(0xFF0C4D7A),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Row(
+          children: [
+            Icon(Icons.info_outline, color: Colors.white, size: 28),
+            SizedBox(width: 10),
+            Text(
+              'Détails du Module',
+              style: TextStyle(color: Colors.white, fontSize: 18),
+            ),
+          ],
+        ),
+        content: Container(
+          width: double.maxFinite,
+          child: ListView(
+            shrinkWrap: true,
+            children: [
+              _buildDetailRow('SerialNumber', module.serialNumber ?? 'N/A'),
+              _buildDetailRow('SIMCardNumber', module.simCardNumber ?? 'N/A'),
+              _buildDetailRow('EquipmentType', module.equipmentType ?? 'N/A'),
+              _buildDetailRow('PasswordDevice', module.passwordDevice ?? 'N/A'),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text(
+              'Fermer',
+              style: TextStyle(color: Colors.white, fontSize: 16),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDetailRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 120,
+            child: Text(
+              label,
+              style: const TextStyle(
+                color: Colors.white70,
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              value.isNotEmpty ? value : 'N/A',
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -187,6 +298,23 @@ class _DiagnosticScreenState extends State<DiagnosticScreen> {
               padding: EdgeInsets.all(16),
               child: CircularProgressIndicator(color: Colors.white),
             ),
+          if (_errorMessage != null && !_isLoading)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.orange.withOpacity(0.15),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.orange.withOpacity(0.4)),
+                ),
+                child: Text(
+                  _errorMessage!,
+                  style: const TextStyle(color: Colors.white),
+                ),
+              ),
+            ),
           Expanded(
             child: Container(
               margin: const EdgeInsets.symmetric(horizontal: 16),
@@ -263,6 +391,22 @@ class _DiagnosticScreenState extends State<DiagnosticScreen> {
                                 ],
                               );
 
+                              // Info button to show module details
+                              final infoButton = IconButton(
+                                onPressed: () => _showModuleDetails(module),
+                                icon: const Icon(
+                                  Icons.info_outline,
+                                  color: Colors.white70,
+                                  size: 22,
+                                ),
+                                tooltip: 'Voir les details',
+                                style: IconButton.styleFrom(
+                                  backgroundColor:
+                                      Colors.white.withOpacity(0.15),
+                                  padding: const EdgeInsets.all(8),
+                                ),
+                              );
+
                               final actionButton = ElevatedButton(
                                 onPressed: () => _onModuleAction(module),
                                 style: ElevatedButton.styleFrom(
@@ -288,9 +432,13 @@ class _DiagnosticScreenState extends State<DiagnosticScreen> {
                                   children: [
                                     info,
                                     const SizedBox(height: 10),
-                                    Align(
-                                      alignment: Alignment.centerRight,
-                                      child: actionButton,
+                                    Row(
+                                      mainAxisAlignment: MainAxisAlignment.end,
+                                      children: [
+                                        infoButton,
+                                        const SizedBox(width: 8),
+                                        actionButton,
+                                      ],
                                     ),
                                   ],
                                 );
@@ -299,6 +447,8 @@ class _DiagnosticScreenState extends State<DiagnosticScreen> {
                               return Row(
                                 children: [
                                   Expanded(child: info),
+                                  const SizedBox(width: 8),
+                                  infoButton,
                                   const SizedBox(width: 10),
                                   actionButton,
                                 ],
@@ -321,19 +471,7 @@ class _DiagnosticScreenState extends State<DiagnosticScreen> {
     return GestureDetector(
       onTap: () {
         setState(() => _selectedSection = section);
-        if (section == 'config') {
-          _loadModules(); // Refresh modules when config section is selected
-        } else if (section == 'update') {
-          // Show static modules for update
-          setState(() {
-            _modules = _staticModules;
-          });
-        } else if (section == 'diagnostic') {
-          // Show static modules for diagnostic
-          setState(() {
-            _modules = _staticModules;
-          });
-        }
+        _loadModules(silent: true);
       },
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 12),
@@ -382,9 +520,17 @@ class _DiagnosticScreenState extends State<DiagnosticScreen> {
 class _GpsModule {
   final String name;
   final String subtitle;
+  final String? serialNumber;
+  final String? simCardNumber;
+  final String? equipmentType;
+  final String? passwordDevice;
 
   const _GpsModule({
     required this.name,
     required this.subtitle,
+    this.serialNumber,
+    this.simCardNumber,
+    this.equipmentType,
+    this.passwordDevice,
   });
 }

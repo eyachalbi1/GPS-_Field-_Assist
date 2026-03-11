@@ -71,7 +71,8 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   int _compareTasksByPriority(Task a, Task b) {
-    final statusComparison = _statusPriority(a.status).compareTo(_statusPriority(b.status));
+    final statusComparison =
+        _statusPriority(a.status).compareTo(_statusPriority(b.status));
     if (statusComparison != 0) {
       return statusComparison;
     }
@@ -184,7 +185,8 @@ class _HomeScreenState extends State<HomeScreen> {
                 decoration: BoxDecoration(
                   color: Colors.white.withOpacity(0.1),
                   border: Border(
-                    right: BorderSide(color: Colors.white.withOpacity(0.2), width: 1),
+                    right: BorderSide(
+                        color: Colors.white.withOpacity(0.2), width: 1),
                   ),
                   boxShadow: [
                     BoxShadow(
@@ -199,23 +201,29 @@ class _HomeScreenState extends State<HomeScreen> {
                     const SizedBox(height: 20),
                     _buildSidebarItem('TO DO', 'TODO', Colors.white),
                     const SizedBox(height: 20),
-                    _buildSidebarItem('ASSETS', 'ASSETS', const Color(0xFF5DADE2)),
+                    _buildSidebarItem(
+                        'ASSETS', 'ASSETS', const Color(0xFF5DADE2)),
                     const SizedBox(height: 20),
-                    _buildSidebarItem('DIAGNOSTIQUE', 'DIAGNOSTIQUE', const Color(0xFF48C9B0)),
+                    _buildSidebarItem('DIAGNOSTIQUE', 'DIAGNOSTIQUE',
+                        const Color(0xFF48C9B0)),
                     const Spacer(),
                     Padding(
                       padding: const EdgeInsets.only(bottom: 20),
                       child: IconButton(
-                        icon: const Icon(Icons.logout, color: Colors.white, size: 28),
+                        icon: const Icon(Icons.logout,
+                            color: Colors.white, size: 28),
                         onPressed: () {
                           showDialog(
                             context: context,
                             builder: (context) => AlertDialog(
                               backgroundColor: const Color(0xFF5B7C99),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                              shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(16)),
                               title: const Text(
                                 'Deconnexion',
-                                style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                                style: TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold),
                               ),
                               content: const Text(
                                 'Voulez-vous vraiment vous deconnecter ?',
@@ -224,7 +232,8 @@ class _HomeScreenState extends State<HomeScreen> {
                               actions: [
                                 TextButton(
                                   onPressed: () => Navigator.pop(context),
-                                  style: TextButton.styleFrom(foregroundColor: Colors.white),
+                                  style: TextButton.styleFrom(
+                                      foregroundColor: Colors.white),
                                   child: const Text('Annuler'),
                                 ),
                                 ElevatedButton(
@@ -233,12 +242,14 @@ class _HomeScreenState extends State<HomeScreen> {
                                     await _authService.logout();
                                     if (!mounted) return;
                                     Navigator.of(context).pushAndRemoveUntil(
-                                      MaterialPageRoute(builder: (context) => const LoginScreen()),
+                                      MaterialPageRoute(
+                                          builder: (context) =>
+                                              const LoginScreen()),
                                       (route) => false,
                                     );
                                   },
                                   style: ElevatedButton.styleFrom(
-                                    backgroundColor: Colors.red,
+                                    backgroundColor: const Color(0xFFDC143C),
                                     foregroundColor: Colors.white,
                                   ),
                                   child: const Text('Deconnexion'),
@@ -256,18 +267,21 @@ class _HomeScreenState extends State<HomeScreen> {
                 child: Column(
                   children: [
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 12),
                       decoration: BoxDecoration(
                         color: Colors.white.withOpacity(0.1),
                         border: Border(
-                          bottom: BorderSide(color: Colors.white.withOpacity(0.2), width: 1),
+                          bottom: BorderSide(
+                              color: Colors.white.withOpacity(0.2), width: 1),
                         ),
                       ),
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.end,
                         children: [
                           IconButton(
-                            icon: const Icon(Icons.refresh, color: Colors.white, size: 28),
+                            icon: const Icon(Icons.refresh,
+                                color: Colors.white, size: 28),
                             onPressed: _loadTasks,
                           ),
                           const SizedBox(width: 8),
@@ -275,7 +289,8 @@ class _HomeScreenState extends State<HomeScreen> {
                             decoration: BoxDecoration(
                               color: Colors.white.withOpacity(0.2),
                               borderRadius: BorderRadius.circular(20),
-                              border: Border.all(color: Colors.white.withOpacity(0.3)),
+                              border: Border.all(
+                                  color: Colors.white.withOpacity(0.3)),
                             ),
                             child: Switch(
                               value: _isDarkMode,
@@ -316,10 +331,14 @@ class _HomeScreenState extends State<HomeScreen> {
         width: 44,
         padding: const EdgeInsets.symmetric(vertical: 10),
         decoration: BoxDecoration(
-          color: isSelected ? const Color(0xFFDCE1E8).withOpacity(0.78) : Colors.transparent,
+          color: isSelected
+              ? const Color(0xFFDCE1E8).withOpacity(0.78)
+              : Colors.transparent,
           borderRadius: BorderRadius.circular(10),
           border: Border.all(
-            color: isSelected ? Colors.white.withOpacity(0.35) : Colors.transparent,
+            color: isSelected
+                ? Colors.white.withOpacity(0.35)
+                : Colors.transparent,
           ),
         ),
         child: RotatedBox(
@@ -341,14 +360,16 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _buildTodoPage() {
     if (_isLoading) {
-      return const Center(child: CircularProgressIndicator(color: Colors.white));
+      return const Center(
+          child: CircularProgressIndicator(color: Colors.white));
     }
 
     final frameDecoration = _isDarkMode
         ? BoxDecoration(
             color: const Color(0xFF141414),
             borderRadius: BorderRadius.circular(30),
-            border: Border.all(color: Colors.white.withOpacity(0.22), width: 1.3),
+            border:
+                Border.all(color: Colors.white.withOpacity(0.22), width: 1.3),
           )
         : BoxDecoration(
             gradient: const LinearGradient(
@@ -360,7 +381,8 @@ class _HomeScreenState extends State<HomeScreen> {
               ],
             ),
             borderRadius: BorderRadius.circular(30),
-            border: Border.all(color: Colors.white.withOpacity(0.42), width: 1.3),
+            border:
+                Border.all(color: Colors.white.withOpacity(0.42), width: 1.3),
           );
 
     return Container(
@@ -433,8 +455,10 @@ class _TaskCardState extends State<_TaskCard> {
       builder: (context) => AlertDialog(
         backgroundColor: const Color(0xFF5B7C99),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text('Confirmer', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-        content: const Text('Marquer cette tache comme terminee ?', style: TextStyle(color: Colors.white70)),
+        title: const Text('Confirmer',
+            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        content: const Text('Marquer cette tache comme terminee ?',
+            style: TextStyle(color: Colors.white70)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
@@ -455,10 +479,12 @@ class _TaskCardState extends State<_TaskCard> {
 
     if (confirmed == true) {
       try {
-        await _taskService.updateTaskStatus(widget.task.id, TaskStatus.completed);
+        await _taskService.updateTaskStatus(
+            widget.task.id, TaskStatus.completed);
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Tache terminee'), backgroundColor: Colors.green),
+          const SnackBar(
+              content: Text('Tache terminee'), backgroundColor: Colors.green),
         );
         widget.onRefresh();
       } catch (_) {
@@ -527,7 +553,8 @@ class _TaskCardState extends State<_TaskCard> {
                     ),
                   ),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                     decoration: BoxDecoration(
                       color: widget.statusColor,
                       borderRadius: BorderRadius.circular(20),
@@ -543,7 +570,9 @@ class _TaskCardState extends State<_TaskCard> {
                   ),
                   const SizedBox(width: 8),
                   Icon(
-                    widget.isExpanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
+                    widget.isExpanded
+                        ? Icons.keyboard_arrow_up
+                        : Icons.keyboard_arrow_down,
                     color: Colors.white.withOpacity(0.9),
                     size: 20,
                   ),
@@ -573,18 +602,22 @@ class _TaskCardState extends State<_TaskCard> {
                   ElevatedButton.icon(
                     onPressed: () async {
                       await Navigator.of(context).push(
-                        MaterialPageRoute(builder: (_) => TaskDetailScreen(task: widget.task)),
+                        MaterialPageRoute(
+                            builder: (_) =>
+                                TaskDetailScreen(task: widget.task)),
                       );
                       if (!mounted) return;
                       widget.onRefresh();
                     },
                     icon: const Icon(Icons.file_copy_outlined, size: 16),
-                    label: const Text('Fichiers', style: TextStyle(fontSize: 15)),
+                    label:
+                        const Text('Fichiers', style: TextStyle(fontSize: 15)),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFF3C9EE6),
                       foregroundColor: Colors.white,
                       minimumSize: const Size.fromHeight(36),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(9)),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(9)),
                     ),
                   ),
                   if (widget.task.status != TaskStatus.completed) ...[
@@ -592,12 +625,14 @@ class _TaskCardState extends State<_TaskCard> {
                     ElevatedButton.icon(
                       onPressed: _markAsCompleted,
                       icon: const Icon(Icons.check_circle, size: 16),
-                      label: const Text('Terminer', style: TextStyle(fontSize: 15)),
+                      label: const Text('Terminer',
+                          style: TextStyle(fontSize: 15)),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFF7DDB82),
                         foregroundColor: Colors.black,
                         minimumSize: const Size.fromHeight(36),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(9)),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(9)),
                       ),
                     ),
                   ],
@@ -634,4 +669,3 @@ class _TaskCardState extends State<_TaskCard> {
     );
   }
 }
-

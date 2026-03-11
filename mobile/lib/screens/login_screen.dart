@@ -68,7 +68,7 @@ class _LoginScreenState extends State<LoginScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(message),
-          backgroundColor: Colors.red,
+          backgroundColor: const Color(0xFFDC143C),
           duration: const Duration(seconds: 5),
         ),
       );

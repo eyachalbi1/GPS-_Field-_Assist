@@ -6,24 +6,21 @@ from src.services.auth_service import verify_token
 security = HTTPBearer()
 
 def authenticate_user(username: str, password: str):
-    conn = get_db()
-    cursor = conn.cursor()
-    
     try:
-        cursor.execute("SELECT * FROM users WHERE username = %s AND role = 'technicien'" , (username,))
-        user = cursor.fetchone()
-        
-        if user and verify_password(password, user["password"]):
-            return {
-                "id": user["id"],
-                "username": user["username"],
-                "role": user["role"]
-            }
+        with get_db() as conn:
+            with conn.cursor() as cursor:
+                cursor.execute("SELECT * FROM users WHERE username = %s", (username,))
+                user = cursor.fetchone()
+                
+                if user and verify_password(password, user["password"]):
+                    return {
+                        "id": user["id"],
+                        "username": user["username"],
+                        "role": user["role"]
+                    }
         return None
-    except Exception as e:
+    except Exception:
         return None
-    finally:
-        conn.close()
 
 def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)):
     payload = verify_token(credentials.credentials)

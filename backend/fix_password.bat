@@ -7,7 +7,7 @@ echo.
 
 cd /d "%~dp0"
 
-"C:\Users\Asus\AppData\Local\Programs\Python\Python313\python.exe" configure_password.py
+"c:\1.0\backend\venv\Scripts\python.exe" configure_password.py
 
 echo.
 pause

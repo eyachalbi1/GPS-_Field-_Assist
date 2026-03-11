@@ -7,7 +7,7 @@ echo.
 cd /d "%~dp0"
 
 echo Lancement des tests de login...
-"C:\Users\Asus\AppData\Local\Programs\Python\Python313\python.exe" test_login.py
+"c:\1.0\backend\venv\Scripts\python.exe" test_login.py
 
 echo.
 pause

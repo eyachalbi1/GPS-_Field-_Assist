@@ -35,7 +35,7 @@ echo.
 echo ============================================================
 echo 📊 Configuration de la base de données...
 echo ============================================================
-"C:\Users\Asus\AppData\Local\Programs\Python\Python313\python.exe" setup_db.py
+"c:\1.0\backend\venv\Scripts\python.exe" setup_db.py
 pause
 goto menu
 
@@ -44,7 +44,7 @@ echo.
 echo ============================================================
 echo 👤 Création de l'utilisateur de test...
 echo ============================================================
-"C:\Users\Asus\AppData\Local\Programs\Python\Python313\python.exe" create_test_user.py
+"c:\1.0\backend\venv\Scripts\python.exe" create_test_user.py
 goto menu
 
 :start_server
@@ -54,10 +54,10 @@ echo 🌐 Démarrage du serveur backend...
 echo ============================================================
 echo.
 echo Le serveur va démarrer sur http://0.0.0.0:8000
-echo Utilisez l'IP locale du PC depuis le téléphone (ex: http://192.168.x.x:8000)
+echo Utilisez l'IP locale du PC depuis le téléphone (ex: http://192.168.2.115:8000)
 echo Appuyez sur CTRL+C pour arrêter le serveur
 echo.
-"C:\Users\Asus\AppData\Local\Programs\Python\Python313\python.exe" -m uvicorn main:app --reload --host 0.0.0.0 --port 8000
+"c:\1.0\backend\venv\Scripts\python.exe" -m uvicorn main:app --reload --host 0.0.0.0 --port 8000
 goto menu
 
 :test_login
@@ -69,7 +69,7 @@ echo.
 echo Assurez-vous que le serveur est démarré dans un autre terminal!
 echo.
 pause
-"C:\Users\Asus\AppData\Local\Programs\Python\Python313\python.exe" test_login.py
+"c:\1.0\backend\venv\Scripts\python.exe" test_login.py
 pause
 goto menu
 
@@ -78,7 +78,7 @@ echo.
 echo ============================================================
 echo 🔐 Configuration du mot de passe PostgreSQL...
 echo ============================================================
-"C:\Users\Asus\AppData\Local\Programs\Python\Python313\python.exe" configure_password.py
+"c:\1.0\backend\venv\Scripts\python.exe" configure_password.py
 pause
 goto menu
 
@@ -89,13 +89,13 @@ echo ⚡ Configuration automatique...
 echo ============================================================
 echo.
 echo Étape 1/3: Configuration du mot de passe...
-"C:\Users\Asus\AppData\Local\Programs\Python\Python313\python.exe" configure_password.py
+"c:\1.0\backend\venv\Scripts\python.exe" configure_password.py
 echo.
 echo Étape 2/3: Configuration de la base de données...
-"C:\Users\Asus\AppData\Local\Programs\Python\Python313\python.exe" setup_db.py
+"c:\1.0\backend\venv\Scripts\python.exe" setup_db.py
 echo.
 echo Étape 3/3: Création de l'utilisateur de test...
-"C:\Users\Asus\AppData\Local\Programs\Python\Python313\python.exe" create_test_user.py
+"c:\1.0\backend\venv\Scripts\python.exe" create_test_user.py
 echo.
 echo ============================================================
 echo ✅ Configuration terminée!
@@ -113,3 +113,4 @@ echo.
 echo Au revoir! 👋
 echo.
 exit
+

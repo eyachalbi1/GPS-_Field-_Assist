@@ -8,7 +8,7 @@ if defined _OLD_CODEPAGE (
     "%SystemRoot%\System32\chcp.com" 65001 > nul
 )
 
-set VIRTUAL_ENV=c:\Users\Asus\Desktop\gps-field-assist22233\backend\venv
+set VIRTUAL_ENV=C:\1.0\backend\venv
 
 if not defined PROMPT set PROMPT=$P$G
 

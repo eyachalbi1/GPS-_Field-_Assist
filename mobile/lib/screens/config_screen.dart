@@ -1,9 +1,10 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:telephony/telephony.dart';
 import 'package:url_launcher/url_launcher.dart';
-
+import '../services/gps_device_service.dart';
 import 'pdf_viewer_screen.dart';
 
 class ConfigScreen extends StatefulWidget {
@@ -20,6 +21,61 @@ class _ConfigScreenState extends State<ConfigScreen> {
   final Telephony _telephony = Telephony.instance;
 
   bool _isSending = false;
+  List<Map<String, String?>> _modules = [];
+  String? _selectedModule;
+  bool _isLoadingModules = true;
+  Timer? _modulesRefreshTimer;
+  StreamSubscription<List<GpsDevice>>? _devicesSubscription;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadModules();
+    _startModulesAutoRefresh();
+    _devicesSubscription = GpsDeviceService.devicesStream.listen((devices) {
+      if (!mounted) return;
+      setState(() {
+        _modules = devices.map((d) => d.toMap()).toList();
+      });
+    });
+  }
+
+  void _startModulesAutoRefresh() {
+    _modulesRefreshTimer?.cancel();
+    _modulesRefreshTimer = Timer.periodic(
+      const Duration(seconds: 15),
+      (_) => _loadModules(silent: true),
+    );
+  }
+
+  Future<void> _loadModules({bool silent = false}) async {
+    if (!silent) {
+      setState(() => _isLoadingModules = true);
+    }
+    try {
+      final devices = await GpsDeviceService.fetchDevices();
+      final loadedModules = devices.map((d) => d.toMap()).toList();
+      if (!mounted) return;
+
+      final currentSelection = _selectedModule;
+      _modules = loadedModules;
+
+      if (currentSelection != null) {
+        final exists = _modules.any(
+          (m) => m['SerialNumber'] == currentSelection,
+        );
+        if (!exists) {
+          _selectedModule = null;
+        }
+      }
+    } catch (e) {
+      _modules = [];
+    } finally {
+      if (mounted) {
+        setState(() => _isLoadingModules = false);
+      }
+    }
+  }
 
   String _normalizePhone(String input) {
     final trimmed = input.trim();
@@ -34,22 +90,14 @@ class _ConfigScreenState extends State<ConfigScreen> {
     _imeiController.dispose();
     _descriptionController.dispose();
     _phoneController.dispose();
+    _modulesRefreshTimer?.cancel();
+    _devicesSubscription?.cancel();
     super.dispose();
   }
 
   String _buildSmsMessage() {
-    final imei = _imeiController.text.trim();
-    final description = _descriptionController.text.trim();
-
-    final buffer = StringBuffer('TEST GPS FIELD ASSIST');
-    if (imei.isNotEmpty) {
-      buffer.write('\nIMEI: $imei');
-    }
-    if (description.isNotEmpty) {
-      buffer.write('\nDescription: $description');
-    }
-    buffer.write('\nStatut: Test SMS depuis application');
-    return buffer.toString();
+    // Simple test message
+    return 'TEST GPS';
   }
 
   Future<bool> _openSmsAppFallback({
@@ -99,7 +147,10 @@ class _ConfigScreenState extends State<ConfigScreen> {
       final hasPermission = await _telephony.requestSmsPermissions;
       if (hasPermission != true) {
         final message = _buildSmsMessage();
-        final opened = await _openSmsAppFallback(phone: phone, message: message);
+        final opened = await _openSmsAppFallback(
+          phone: phone,
+          message: message,
+        );
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -127,8 +178,8 @@ class _ConfigScreenState extends State<ConfigScreen> {
               SnackBar(
                 content: Text('$text vers $phone'),
                 backgroundColor: status == SendStatus.DELIVERED
-                    ? Colors.green
-                    : Colors.blue,
+                    ? const Color(0xFF2ECC71)
+                    : const Color(0xFF3498DB),
               ),
             );
           },
@@ -139,7 +190,7 @@ class _ConfigScreenState extends State<ConfigScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Ouverture de l app SMS par defaut pour $phone'),
-            backgroundColor: Colors.orange,
+            backgroundColor: const Color(0xFF3498DB),
           ),
         );
         return;
@@ -149,17 +200,11 @@ class _ConfigScreenState extends State<ConfigScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Commande SMS lancee vers $phone'),
-          backgroundColor: Colors.green,
+          backgroundColor: const Color(0xFF2ECC71),
         ),
       );
     } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Echec envoi SMS: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      // Silent fail - don't display error to user
     } finally {
       if (mounted) {
         setState(() => _isSending = false);
@@ -207,6 +252,102 @@ class _ConfigScreenState extends State<ConfigScreen> {
                   ),
                 ),
                 const SizedBox(height: 20),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        _modules.isNotEmpty
+                            ? '${_modules.length} modules charges depuis l API'
+                            : 'Aucun module charge depuis l API',
+                        style: const TextStyle(
+                          color: Colors.white70,
+                          fontSize: 12,
+                          fontStyle: FontStyle.italic,
+                        ),
+                      ),
+                    ),
+                    IconButton(
+                      onPressed: () => _loadModules(),
+                      icon: const Icon(Icons.refresh, color: Colors.white),
+                      tooltip: 'Recharger depuis l API',
+                    ),
+                  ],
+                ),
+                if (_isLoadingModules)
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.9),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Row(
+                      children: [
+                        SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        ),
+                        SizedBox(width: 12),
+                        Text('Chargement des modules...'),
+                      ],
+                    ),
+                  )
+                else if (_modules.isNotEmpty)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.9),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: DropdownButtonFormField<String>(
+                      value: _selectedModule,
+                      decoration: InputDecoration(
+                        labelText: 'Sélectionner un module GPS',
+                        labelStyle: const TextStyle(color: Color(0xFF0066FF)),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide.none,
+                        ),
+                        prefixIcon: const Icon(
+                          Icons.gps_fixed,
+                          color: Color(0xFF0066FF),
+                        ),
+                      ),
+                      items: _modules.map((module) {
+                        final serial = module['SerialNumber'] ?? '';
+                        final type = module['EquipmentType'] ?? '';
+                        return DropdownMenuItem(
+                          value: serial,
+                          child: Text('$type - $serial'),
+                        );
+                      }).toList(),
+                      onChanged: (value) {
+                        setState(() {
+                          _selectedModule = value;
+                          final module = _modules.firstWhere(
+                            (m) => m['SerialNumber'] == value,
+                          );
+                          _phoneController.text = module['SIMCardNumber'] ?? '';
+                          _descriptionController.text =
+                              module['EquipmentType'] ?? '';
+                        });
+                      },
+                    ),
+                  ),
+                if (!_isLoadingModules && _modules.isEmpty)
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.orange.withOpacity(0.15),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.orange.withOpacity(0.4)),
+                    ),
+                    child: const Text(
+                      'Aucune donnee disponible depuis l API. Verifiez la connexion serveur puis rechargez.',
+                      style: TextStyle(color: Colors.white),
+                    ),
+                  ),
+                const SizedBox(height: 16),
                 Container(
                   decoration: BoxDecoration(
                     color: Colors.white.withOpacity(0.9),

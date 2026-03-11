@@ -77,4 +77,9 @@ class AuthService {
     await prefs.remove(_tokenKey);
     await prefs.remove(_userKey);
   }
+
+  Future<String?> getToken() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_tokenKey);
+  }
 }
