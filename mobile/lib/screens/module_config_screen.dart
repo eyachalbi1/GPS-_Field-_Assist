@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:telephony/telephony.dart';
+import '../services/operator_service.dart';
 import '../services/sms_history_service.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../services/gps_device_service.dart';
@@ -100,8 +101,16 @@ class _ModuleConfigScreenState extends State<ModuleConfigScreen> {
 
     _devicesSubscription = GpsDeviceService.devicesStream.listen((devices) {
       if (!mounted) return;
+      final loaded = devices.map((d) => d.toMap()).toList();
+      // Try to find exact module matching widget.moduleName
+      int matchIndex = loaded.indexWhere((ex) =>
+          (ex['SerialNumber'] ?? '').trim() == widget.moduleName.trim());
+
       setState(() {
-        _examples = devices.map((d) => d.toMap()).toList();
+        _examples = loaded;
+        if (matchIndex >= 0) {
+          _applyExample(matchIndex, notify: false);
+        }
       });
     });
 
@@ -129,20 +138,25 @@ class _ModuleConfigScreenState extends State<ModuleConfigScreen> {
       if (!mounted) return;
 
       if (loadedExamples.isNotEmpty) {
-        final selectedSerial = _serialController.text.trim();
         _examples = loadedExamples;
 
-        int indexToApply = 0;
-        if (selectedSerial.isNotEmpty) {
-          final currentIndex = _examples.indexWhere(
-            (ex) => (ex['SerialNumber'] ?? '').trim() == selectedSerial,
-          );
-          if (currentIndex >= 0) {
-            indexToApply = currentIndex;
+        // Prefer exact match by moduleName (SerialNumber)
+        int indexToApply = _examples.indexWhere((ex) =>
+            (ex['SerialNumber'] ?? '').trim() == widget.moduleName.trim());
+
+        // If no exact match, try to use existing selected serial
+        if (indexToApply < 0) {
+          final selectedSerial = _serialController.text.trim();
+          if (selectedSerial.isNotEmpty) {
+            final currentIndex = _examples.indexWhere(
+              (ex) => (ex['SerialNumber'] ?? '').trim() == selectedSerial,
+            );
+            if (currentIndex >= 0) indexToApply = currentIndex;
           }
-        } else {
-          indexToApply = widget.moduleName.hashCode.abs() % _examples.length;
         }
+
+        // Fallback: pick first
+        if (indexToApply < 0) indexToApply = 0;
 
         _applyExample(indexToApply, notify: false);
       } else if (_examples.isEmpty) {
@@ -150,12 +164,13 @@ class _ModuleConfigScreenState extends State<ModuleConfigScreen> {
         final history = await SmsHistoryService.getHistory();
         // Chercher la dernière entrée correspondant à ce module
         SmsHistoryItem? lastForModule;
-        try {
+        if (history.isEmpty) {
+          lastForModule = null;
+        } else {
           lastForModule = history.firstWhere(
-              (h) => h.moduleName != null && h.moduleName == widget.moduleName,
-              orElse: () => history.isNotEmpty ? history.first : null);
-        } catch (_) {
-          lastForModule = history.isNotEmpty ? history.first : null;
+            (h) => h.moduleName != null && h.moduleName == widget.moduleName,
+            orElse: () => history.first,
+          );
         }
 
         if (lastForModule != null) {
@@ -720,6 +735,20 @@ class _ModuleConfigScreenState extends State<ModuleConfigScreen> {
         child: SafeArea(
           child: Column(
             children: [
+              // Operator logos row (shows current operator; tap to open server config)
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                    children: [
+                      _operatorLogo(MobileOperator.telecom, 'assets/logo_telecom.png'),
+                      _operatorLogo(MobileOperator.orange, 'assets/logo_orange.png'),
+                      _operatorLogo(MobileOperator.ooredoo, 'assets/logo_ooredoo.png'),
+                    ],
+                  ),
+                ),
+              ),
               if (_smsStatus != null)
                 Container(
                   margin: const EdgeInsets.all(12),
@@ -995,12 +1024,51 @@ class _ModuleConfigScreenState extends State<ModuleConfigScreen> {
                   ),
                 ),
               ),
+              
+              // end SMS status
             ],
           ),
         ),
       ),
     );
   }
+
+  Widget _operatorLogo(MobileOperator operator, String assetPath) {
+    final isSelected = Config.selectedOperator == operator;
+    return GestureDetector(
+      onTap: () {
+        // open server config to change operator
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const ServerConfigScreen()),
+        );
+      },
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Opacity(
+            opacity: isSelected ? 1.0 : 0.45,
+            child: Image.asset(
+              assetPath,
+              width: 56,
+              height: 56,
+              fit: BoxFit.contain,
+              errorBuilder: (c, e, s) => const Icon(Icons.signal_cellular_alt, size: 40),
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            operator.name.isNotEmpty ? (operator.name[0].toUpperCase() + operator.name.substring(1)) : operator.name,
+            style: TextStyle(
+              color: isSelected ? Colors.white : Colors.white70,
+              fontSize: 12,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
 
   Widget _buildConfigTab() {
     if (_isLoadingDevices) {
