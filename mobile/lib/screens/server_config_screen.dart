@@ -535,14 +535,6 @@ class _ServerConfigScreenState extends State<ServerConfigScreen> {
               ),
             ),
             const SizedBox(height: 16),
-            // Sélecteur d'opérateur téléphonique
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: _buildOperatorSelector(),
-              ),
-            ),
-            const SizedBox(height: 16),
             Card(
               color: Colors.orange[50],
               child: Padding(

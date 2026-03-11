@@ -294,30 +294,10 @@ class _ModuleConfigScreenState extends State<ModuleConfigScreen> {
       if (normalizedSender != normalizedExpected) {
         debugPrint(
             'SMS ignoré - expéditeur différent: $normalizedSender vs $normalizedExpected');
-        return;
-      }
-    }
-
-    if (mounted) {
-      setState(() {
-        _lastSmsResponse = body;
-        _smsStatus = null;
-
-        // Mettre à jour l'historique
-        bool updated = false;
-        for (int i = 0; i < _smsHistory.length; i++) {
-          if (_smsHistory[i]['status'] == 'sent') {
-            _smsHistory[i]['response'] = body;
-            _smsHistory[i]['status'] = 'received';
-            updated = true;
-            debugPrint('Historique mis à jour à l\'index $i');
-            break;
-          }
-        }
-
-        if (!updated && _lastSentCommand != null) {
-          _smsHistory.insert(0, {
-            'command': _lastSentCommand!,
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // device title and count removed for visibility
             'response': body,
             'time': DateTime.now().toString().substring(11, 19),
             'status': 'received',
@@ -640,27 +620,7 @@ class _ModuleConfigScreenState extends State<ModuleConfigScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text(
-              'Fermer',
-              style: TextStyle(color: Colors.white, fontSize: 16),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildDetailRow(String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(
-            width: 120,
-            child: Text(
-              label,
-              style: const TextStyle(
+            // Title and device-count removed for better visibility (UI simplified)
                 color: Colors.white70,
                 fontSize: 14,
                 fontWeight: FontWeight.w500,
@@ -1036,11 +996,19 @@ class _ModuleConfigScreenState extends State<ModuleConfigScreen> {
   Widget _operatorLogo(MobileOperator operator, String assetPath) {
     final isSelected = Config.selectedOperator == operator;
     return GestureDetector(
-      onTap: () {
-        // open server config to change operator
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (_) => const ServerConfigScreen()),
+      onTap: () async {
+        // Select operator here (used for SMS sending) and persist
+        setState(() {
+          Config.setSelectedOperator(operator);
+        });
+        await Config.saveConfig();
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Opérateur sélectionné: ${operator.name}'),
+            backgroundColor: const Color(0xFF2ECC71),
+            duration: const Duration(seconds: 2),
+          ),
         );
       },
       child: Column(
@@ -1092,28 +1060,7 @@ class _ModuleConfigScreenState extends State<ModuleConfigScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          'Choisir un dispositif',
-          style: TextStyle(
-              color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
-        ),
-        const SizedBox(height: 4),
-        Row(
-          children: [
-            Expanded(
-              child: Text(
-                _examples.isNotEmpty
-                    ? '${_examples.length} dispositifs charges depuis l API'
-                    : 'Aucun dispositif charge depuis l API',
-                style: const TextStyle(
-                  color: Colors.white70,
-                  fontSize: 12,
-                  fontStyle: FontStyle.italic,
-                ),
-              ),
-            ),
-          ],
-        ),
+        // Device title and count removed for improved visibility
         const SizedBox(height: 8),
         // Info button to show all module details
         if (_examples.isNotEmpty)
