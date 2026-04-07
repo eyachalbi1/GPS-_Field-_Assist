@@ -7,7 +7,7 @@ from ..models.database import get_db
 
 SECRET_KEY = "tunav_gps_secret_key_2024"
 ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_DAYS = 7
+ACCESS_TOKEN_EXPIRE_DAYS = 30
 
 security = HTTPBearer()
 

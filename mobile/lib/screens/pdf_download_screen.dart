@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
-import 'package:path_provider/path_provider.dart';
-import 'dart:io';
-import 'pdf_viewer_screen.dart';
+import '../utils/app_theme.dart';
+import '../services/pdf_service.dart';
+import 'pdf_memory_viewer_screen.dart';
 
 class PdfDownloadScreen extends StatefulWidget {
   const PdfDownloadScreen({super.key});
@@ -12,67 +11,48 @@ class PdfDownloadScreen extends StatefulWidget {
 }
 
 class _PdfDownloadScreenState extends State<PdfDownloadScreen> {
-  final List<Map<String, String>> _pdfFiles = [
-    {
-      'name': 'GPS Tracker Manual',
-      'file': 'pdfs_modules/GPSTrackerManual-2016.pdf'
-    },
-    {
-      'name': 'EasyCan Instructions',
-      'file': 'pdfs_modules/5040189801 Ist.Uso EasyCan (1).pdf'
-    },
-    {
-      'name': 'EasyCan Digital Manual',
-      'file': 'pdfs_modules/5040190400-is-mn-easycan-digital.pdf'
-    },
-    {'name': 'Module 5227793', 'file': 'pdfs_modules/5227793.pdf'},
-  ];
+  List<Map<String, String>> _pdfFiles = [];
+  bool _loadingList = true;
+  String? _listError;
+  final Set<String> _opening = {};
 
-  Future<void> _downloadPdf(String pdfPath, String pdfName) async {
-    try {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Téléchargement en cours...')),
-      );
-
-      ByteData data = await rootBundle.load(pdfPath);
-      List<int> bytes = data.buffer.asUint8List();
-
-      Directory? directory;
-      if (Platform.isAndroid) {
-        directory = await getExternalStorageDirectory();
-        directory = Directory('${directory!.path}/Download');
-      } else {
-        directory = await getApplicationDocumentsDirectory();
-      }
-
-      if (!await directory.exists()) {
-        await directory.create(recursive: true);
-      }
-
-      String fileName = '$pdfName.pdf';
-      File file = File('${directory.path}/$fileName');
-      await file.writeAsBytes(bytes);
-
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('PDF téléchargé: ${file.path}'),
-          duration: const Duration(seconds: 3),
-        ),
-      );
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Erreur: $e')),
-      );
-    }
+  @override
+  void initState() {
+    super.initState();
+    _loadList();
   }
 
-  Future<void> _viewPdf(String pdfPath) async {
+  Future<void> _loadList() async {
+    setState(() {
+      _loadingList = true;
+      _listError = null;
+    });
+    final files = await PdfService.fetchPdfList();
+    if (!mounted) return;
+    setState(() {
+      _pdfFiles = files;
+      _loadingList = false;
+      if (files.isEmpty) _listError = 'Aucun PDF disponible sur le serveur.';
+    });
+  }
+
+  Future<void> _openPdf(String filename, String name) async {
+    setState(() => _opening.add(filename));
+    final bytes = await PdfService.getPdfBytes(filename);
+    if (!mounted) return;
+    setState(() => _opening.remove(filename));
+
+    if (bytes == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Impossible de charger: $name')),
+      );
+      return;
+    }
+
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => PdfViewerScreen(pdfPath: pdfPath),
+        builder: (_) => PdfMemoryViewerScreen(filename: filename, title: name),
       ),
     );
   }
@@ -81,83 +61,71 @@ class _PdfDownloadScreenState extends State<PdfDownloadScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Téléchargement de PDFs'),
-        backgroundColor: const Color(0xFF0066FF),
-      ),
-      body: Container(
-        decoration: const BoxDecoration(
-          image: DecorationImage(
-            image: AssetImage('assets/fond tunav.jpg'),
-            fit: BoxFit.cover,
+        title: const Text('Manuels PDF'),
+        backgroundColor: Colors.transparent,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: _loadList,
+            tooltip: 'Actualiser',
           ),
-        ),
-        child: ListView.builder(
-          padding: const EdgeInsets.all(16),
-          itemCount: _pdfFiles.length,
-          itemBuilder: (context, index) {
-            final pdf = _pdfFiles[index];
-            return Container(
-              margin: const EdgeInsets.only(bottom: 12),
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.15),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.white.withOpacity(0.3)),
-              ),
-              child: ListTile(
-                leading: const Icon(
-                  Icons.picture_as_pdf,
-                  color: Color(0xFFE74C3C),
-                  size: 32,
-                ),
-                title: Text(
-                  pdf['name']!,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                trailing: SizedBox(
-                  width: 180,
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    children: [
-                      ElevatedButton.icon(
-                        onPressed: () => _viewPdf(pdf['file']!),
-                        icon: const Icon(Icons.visibility, size: 18),
-                        label: const Text('Voir'),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF3498DB),
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 8,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      ElevatedButton.icon(
-                        onPressed: () =>
-                            _downloadPdf(pdf['file']!, pdf['name']!),
-                        icon: const Icon(Icons.download, size: 18),
-                        label: const Text('Télécharger'),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF27AE60),
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 8,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            );
-          },
-        ),
+        ],
       ),
+      body: _buildBody(),
+    );
+  }
+
+  Widget _buildBody() {
+    if (_loadingList) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (_listError != null) {
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.cloud_off, size: 64, color: Colors.grey),
+            const SizedBox(height: 16),
+            Text(_listError!),
+            const SizedBox(height: 16),
+            ElevatedButton(
+              onPressed: _loadList,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppTheme.skyBottom,
+                foregroundColor: Colors.white,
+              ),
+              child: const Text('Réessayer')),
+          ],
+        ),
+      );
+    }
+
+    return ListView.builder(
+      itemCount: _pdfFiles.length,
+      itemBuilder: (context, index) {
+        final pdf = _pdfFiles[index];
+        final filename = pdf['filename']!;
+        final name = pdf['name']!;
+        final isOpening = _opening.contains(filename);
+        final cached = PdfService.isCached(filename);
+
+        return ListTile(
+          leading: Icon(
+            Icons.picture_as_pdf,
+            color: cached ? Colors.green : Colors.red,
+          ),
+          title: Text(name),
+          subtitle: Text(filename, style: const TextStyle(fontSize: 11)),
+          trailing: isOpening
+              ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2))
+              : Icon(cached ? Icons.check_circle : Icons.download, color: cached ? Colors.green : null),
+          onTap: isOpening ? null : () => _openPdf(filename, name),
+        );
+      },
     );
   }
 }
+
+
+

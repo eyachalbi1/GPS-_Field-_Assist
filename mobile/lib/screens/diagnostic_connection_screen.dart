@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import '../utils/app_theme.dart';
 import 'package:http/http.dart' as http;
 import '../utils/config.dart';
 
@@ -16,7 +17,7 @@ class _DiagnosticConnectionScreenState
   bool _isTesting = false;
   String _testResults = '';
   final _ipController = TextEditingController();
-  final _portController = TextEditingController(text: '8000');
+  final _portController = TextEditingController(text: '5000');
 
   @override
   void initState() {
@@ -107,15 +108,16 @@ class _DiagnosticConnectionScreenState
     return Scaffold(
       appBar: AppBar(
         title: const Text('Diagnostic Connexion'),
-        backgroundColor: const Color(0xFF0066FF),
-        foregroundColor: Colors.white,
+        backgroundColor: Colors.transparent,
+        foregroundColor: AppTheme.c1,
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Card(
+            Container(
+              decoration: AppTheme.cardBlue(radius: 12),
               child: Padding(
                 padding: const EdgeInsets.all(16),
                 child: Column(
@@ -126,6 +128,7 @@ class _DiagnosticConnectionScreenState
                       style: TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
+                        color: AppTheme.c1,
                       ),
                     ),
                     const SizedBox(height: 16),
@@ -166,7 +169,7 @@ class _DiagnosticConnectionScreenState
                                 width: 20,
                                 height: 20,
                                 child: CircularProgressIndicator(
-                                  color: Colors.white,
+                                  color: AppTheme.c1,
                                   strokeWidth: 2,
                                 ),
                               )
@@ -175,7 +178,7 @@ class _DiagnosticConnectionScreenState
                             ? 'Test en cours...'
                             : 'Tester la connexion'),
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF0066FF),
+                          backgroundColor: AppTheme.skyBottom,
                           foregroundColor: Colors.white,
                           padding: const EdgeInsets.symmetric(vertical: 16),
                         ),
@@ -187,21 +190,23 @@ class _DiagnosticConnectionScreenState
             ),
             const SizedBox(height: 16),
             if (_testResults.isNotEmpty)
-              Card(
-                color: Colors.grey[100],
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: SelectableText(
-                    _testResults,
-                    style: const TextStyle(
-                      fontFamily: 'monospace',
-                      fontSize: 13,
-                    ),
+            Container(
+              decoration: AppTheme.cardBlue(radius: 12),
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: SelectableText(
+                  _testResults,
+                  style: const TextStyle(
+                    fontFamily: 'monospace',
+                    fontSize: 13,
+                    color: AppTheme.c1,
                   ),
                 ),
               ),
+            ),
             const SizedBox(height: 16),
-            Card(
+            Container(
+              decoration: AppTheme.cardBlue(radius: 12),
               child: Padding(
                 padding: const EdgeInsets.all(16),
                 child: Column(
@@ -212,6 +217,7 @@ class _DiagnosticConnectionScreenState
                       style: TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
+                        color: AppTheme.c1,
                       ),
                     ),
                     const SizedBox(height: 12),
@@ -271,3 +277,6 @@ class _DiagnosticConnectionScreenState
     );
   }
 }
+
+
+

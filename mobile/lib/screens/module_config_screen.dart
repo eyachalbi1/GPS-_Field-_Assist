@@ -1,16 +1,14 @@
 import 'dart:async';
-import 'dart:io';
 
 import 'package:flutter/material.dart';
+import '../utils/app_theme.dart';
+import '../main.dart';
 import 'package:telephony/telephony.dart';
 import '../services/operator_service.dart';
 import '../services/sms_history_service.dart';
-import 'package:url_launcher/url_launcher.dart';
 import '../services/gps_device_service.dart';
 import '../models/sms_history.dart';
-import '../services/sms_history_service.dart';
 import 'sms_history_screen.dart';
-import 'sequential_sms_screen.dart';
 
 class ModuleConfigScreen extends StatefulWidget {
   final String moduleName;
@@ -21,6 +19,13 @@ class ModuleConfigScreen extends StatefulWidget {
   State<ModuleConfigScreen> createState() => _ModuleConfigScreenState();
 }
 
+enum _CommandProgress {
+  pending,
+  sent,
+  confirmed,
+  failed,
+}
+
 class _ModuleConfigScreenState extends State<ModuleConfigScreen> {
   final Telephony _telephony = Telephony.instance;
   final _serialController = TextEditingController();
@@ -28,23 +33,16 @@ class _ModuleConfigScreenState extends State<ModuleConfigScreen> {
   final _equipmentController = TextEditingController();
   final _passwordController = TextEditingController();
   final _phoneController = TextEditingController();
-  final _imeiController = TextEditingController();
-  final _commandController = TextEditingController();
 
   bool _isSending = false;
   bool _isListening = false;
   int _selectedExampleIndex = 0;
-  int _selectedCommandIndex = 0;
 
-  String? _lastSmsResponse;
-  String? _smsStatus;
-  bool _smsSent = false;
   String? _lastSentCommand;
   String? _lastSentPhone;
   StreamSubscription<SmsMessage>? _smsSubscription;
   bool _isDataValid = true;
   String _validationMessage = '';
-  final List<Map<String, String>> _smsHistory = [];
   Timer? _pollingTimer;
   Timer? _devicesRefreshTimer;
   StreamSubscription<List<GpsDevice>>? _devicesSubscription;
@@ -52,6 +50,14 @@ class _ModuleConfigScreenState extends State<ModuleConfigScreen> {
   bool _isLoadingDevices = true;
   String? _currentSmsId;
   int? _lastSmsCheckTime;
+  Timer? _responseTimer;
+  bool _isSequentialSending = false;
+  bool _isWaitingForResponse = false;
+  int _nextCommandIndex = 0;
+  int? _currentCommandIndex;
+  MobileOperator? _selectedOperatorForSequential;
+  List<Map<String, String>> _sequenceCommands = [];
+  List<_CommandProgress> _commandProgress = [];
 
   String _normalizePhone(String input) {
     final trimmed = input.trim();
@@ -61,35 +67,48 @@ class _ModuleConfigScreenState extends State<ModuleConfigScreen> {
     return trimmed.replaceAll(RegExp(r'[^0-9]'), '');
   }
 
-  static const List<Map<String, String>> _testCommands = [
-    {'command': '*11*4#', 'description': 'Check IP + IMEI + Online/Offline'},
-    {'command': '*11*3#', 'description': 'Check position'},
-    {'command': 'STATUS#', 'description': 'Check contact/fuel supply'},
-    {
-      'command': 'CLR,BLIND#',
-      'description': 'Clear history (permission required)'
-    },
-    {'command': 'RESET#', 'description': 'Restart (wait 30s)'},
-    {'command': '*77*6*IMEI#', 'description': 'Restore IMEI if lost'},
-    {'command': 'APN,internet.tn#', 'description': 'APN Telecom'},
-    {'command': 'APN,apn.tunav.tn#', 'description': 'APN Orange'},
-    {'command': 'APN,m2m.tunav.com,tunav,tunav#', 'description': 'APN Ooredoo'},
+  // Commandes EasyTrace (format &&IMEI,pass,Zxx,...)
+  List<Map<String, String>> _buildEasyTraceCommands() {
+    final imei = _serialController.text.trim();
+    final pass = _passwordController.text.trim().isEmpty ? 'pass' : _passwordController.text.trim();
+    final selected = _selectedOperatorForSequential ?? Config.selectedOperator;
+
+    // APN selon opérateur
+    final apnValues = {
+      MobileOperator.telecom: 'internet.tn',
+      MobileOperator.orange:  'apn.tunav.tn',
+      MobileOperator.ooredoo: 'm2m.tunav.com',
+    };
+    final apn = apnValues[selected] ?? 'internet.tn';
+    final operatorName = Config.operatorNames[selected] ?? '';
+
+    return [
+      {'command': '&&$imei,$pass,Z10,$apn', 'description': 'APN $operatorName'},
+      {'command': '&&$imei,$pass,Z39,1,41.226.24.13,1200,1', 'description': 'IP & Port'},
+      {'command': '&&$imei,$pass,Z31,60,600,60,600,60,600,5,1', 'description': 'Time Report'},
+      {'command': '&&$imei,$pass,Z36,0.7,3,3,1', 'description': 'Distance Report'},
+      {'command': '&&$imei,$pass,Z37,25,2,1', 'description': 'Angle Report'},
+      {'command': '&&$imei,$pass,Z80,1,0', 'description': 'Contact ON/OFF Report'},
+      {'command': '&&$imei,$pass,Z27,1.0,0', 'description': 'Lock GPS when ACC off'},
+    ];
+  }
+
+  bool get _isEasyTraceVII {
+    final eq = _equipmentController.text.trim().toLowerCase();
+    return eq.contains('easytrace') && (eq.contains('vii') || eq.contains('7'));
+  }
+
+  // List of configuration commands that require operator to be selected
+  // These are the ONLY commands that should be shown after operator selection
+  static const List<Map<String, String>> _configCommands = [
     {'command': 'PROTOCOL,3,1#', 'description': 'Set protocol'},
     {'command': 'IP,41.226.27.169,85,1#', 'description': 'Set IP primary'},
-    {'command': 'IP2,41.226.27.169,84,1#', 'description': 'Set IP secondary'},
-    {'command': 'LEVEL,5#', 'description': 'Set level'},
     {'command': 'HC,60,7200,7200#', 'description': 'Set heartbeat config'},
     {'command': 'CORNER,20#', 'description': 'Set corner angle'},
-    {'command': 'ZD,0#', 'description': 'Set ZD parameter'},
-    {'command': 'WY,1,500,0#', 'description': 'Set WY parameter'},
     {'command': 'UTC,0#', 'description': 'Set UTC timezone'},
-    {'command': 'VACC,0#', 'description': 'Set VACC parameter'},
-    {'command': 'COLLISION,0#', 'description': 'Collision detection'},
     {'command': 'SLEEP,0#', 'description': 'Sleep mode'},
-    {'command': 'ALARMSPEED,ON,120#', 'description': 'Speed alarm (120 km/h)'},
-    {'command': 'SENALM,OFF#', 'description': 'Sensor alarm OFF'},
-    {'command': 'MOVING,OFF#', 'description': 'Moving alarm OFF'},
     {'command': 'LINE,4,1#', 'description': 'Set line parameter'},
+    {'command': 'DISTANCE#', 'description': 'Set distance parameter'},
   ];
 
   @override
@@ -97,7 +116,9 @@ class _ModuleConfigScreenState extends State<ModuleConfigScreen> {
     super.initState();
     _loadDevicesFromApi();
     _startDevicesAutoRefresh();
-    _applyTestCommand(0);
+    _selectedOperatorForSequential = Config.selectedOperator;
+    _refreshSequenceCommands();
+    _loadCommandProgressFromHistory();
 
     _devicesSubscription = GpsDeviceService.devicesStream.listen((devices) {
       if (!mounted) return;
@@ -192,6 +213,89 @@ class _ModuleConfigScreenState extends State<ModuleConfigScreen> {
     }
   }
 
+  void _refreshSequenceCommands() {
+    if (_isEasyTraceVII) {
+      // Commandes spécifiques EasyTraceVII
+      _sequenceCommands = _buildEasyTraceCommands();
+    } else {
+      // Commandes standard (autres modules)
+      final selected = _selectedOperatorForSequential ?? Config.selectedOperator;
+      final operatorName = Config.operatorNames[selected] ?? '';
+      final apnCommand = Config.apnCommands[selected] ?? '';
+      final commands = <Map<String, String>>[];
+      if (apnCommand.isNotEmpty) {
+        commands.add({
+          'command': apnCommand,
+          'description': 'APN ${operatorName.isNotEmpty ? operatorName : ''}'.trim(),
+        });
+      }
+      commands.addAll(_configCommands);
+      _sequenceCommands = commands;
+    }
+    _commandProgress = List<_CommandProgress>.filled(
+      _sequenceCommands.length,
+      _CommandProgress.pending,
+    );
+  }
+
+  Future<void> _loadCommandProgressFromHistory() async {
+    try {
+      final history = await SmsHistoryService.getHistory();
+      final Map<String, SmsHistoryItem> latestByCommand = {};
+
+      for (final item in history) {
+        if (item.moduleName != widget.moduleName) continue;
+        final command = item.command;
+        if (_sequenceCommands.indexWhere((c) => c['command'] == command) < 0) {
+          continue;
+        }
+
+        final existing = latestByCommand[command];
+        if (existing == null || item.timestamp.isAfter(existing.timestamp)) {
+          latestByCommand[command] = item;
+        }
+      }
+
+      final progress = List<_CommandProgress>.filled(
+        _sequenceCommands.length,
+        _CommandProgress.pending,
+      );
+
+      for (int i = 0; i < _sequenceCommands.length; i++) {
+        final command = _sequenceCommands[i]['command'];
+        if (command == null) continue;
+        final item = latestByCommand[command];
+        if (item == null) continue;
+
+        switch (item.status) {
+          case SmsHistoryStatus.received:
+            progress[i] = _CommandProgress.confirmed;
+            break;
+          case SmsHistoryStatus.sent:
+          case SmsHistoryStatus.delivered:
+          case SmsHistoryStatus.pending:
+            progress[i] = _CommandProgress.sent;
+            break;
+          case SmsHistoryStatus.failed:
+            progress[i] = _CommandProgress.failed;
+            break;
+        }
+      }
+
+      int nextIndex =
+          progress.indexWhere((p) => p != _CommandProgress.confirmed);
+      if (nextIndex < 0) nextIndex = _sequenceCommands.length;
+
+      if (!mounted) return;
+      setState(() {
+        _commandProgress = progress;
+        _nextCommandIndex = nextIndex;
+      });
+    } catch (e) {
+      debugPrint('Erreur chargement progression commandes: $e');
+    }
+  }
+
   Future<void> _requestSmsPermissions() async {
     try {
       final hasPermission = await _telephony.requestSmsPermissions;
@@ -245,12 +349,12 @@ class _ModuleConfigScreenState extends State<ModuleConfigScreen> {
     _equipmentController.dispose();
     _passwordController.dispose();
     _phoneController.dispose();
-    _imeiController.dispose();
-    _commandController.dispose();
     _stopSmsListener();
     _pollingTimer?.cancel();
+    _responseTimer?.cancel();
     _devicesRefreshTimer?.cancel();
     _devicesSubscription?.cancel();
+    _smsSubscription?.cancel();
     super.dispose();
   }
 
@@ -259,14 +363,16 @@ class _ModuleConfigScreenState extends State<ModuleConfigScreen> {
 
     debugPrint('=== DEMARRAGE SMS LISTENER ===');
 
+    // Start listening for incoming SMS
     _telephony.listenIncomingSms(
       onNewMessage: (SmsMessage message) {
+        debugPrint('=== SMS DETECTE PAR LISTENER ===');
         _handleIncomingSms(message);
       },
-      listenInBackground: false,
+      listenInBackground: true,
     );
 
-    // Démarrer aussi un polling pour vérifier les SMS toutes les 3 secondes
+    // Polling toutes les 3s pour capturer les SMS manqués par le listener
     _pollingTimer?.cancel();
     _pollingTimer = Timer.periodic(const Duration(seconds: 3), (_) {
       _checkForNewSms();
@@ -275,79 +381,108 @@ class _ModuleConfigScreenState extends State<ModuleConfigScreen> {
     setState(() {
       _isListening = true;
     });
-    debugPrint('SMS Listener actif avec polling');
+    debugPrint('SMS Listener started with polling');
   }
 
-  void _handleIncomingSms(SmsMessage message) {
-    final body = message.body ?? '';
+  // Vérifie si l'expéditeur correspond au numéro GPS attendu (comparaison souple)
+  bool _senderMatches(String sender, String expected) {
+    if (sender.isEmpty || expected.isEmpty) return true; // accepter si inconnu
+    final s = sender.replaceAll(RegExp(r'[^0-9]'), '');
+    final e = expected.replaceAll(RegExp(r'[^0-9]'), '');
+    if (s.isEmpty || e.isEmpty) return true;
+    // Correspondance si l'un se termine par l'autre (gère +216 vs local)
+    return s.endsWith(e) || e.endsWith(s);
+  }
+
+  void _handleIncomingSms(SmsMessage? message) {
+    if (message == null) return;
+
+    final body   = message.body   ?? '';
     final sender = message.address ?? '';
 
-    debugPrint('=== SMS RECU ===');
-    debugPrint('De: $sender');
-    debugPrint('Message: $body');
+    debugPrint('=== SMS RECU === De: $sender | Body: $body');
 
-    // Vérifier si c'est du numéro attendu
-    if (_lastSentPhone != null) {
-      final normalizedSender = _normalizePhone(sender);
-      final normalizedExpected = _normalizePhone(_lastSentPhone!);
+    if (body.isEmpty) return;
 
-      if (normalizedSender != normalizedExpected) {
-        debugPrint(
-            'SMS ignoré - expéditeur différent: $normalizedSender vs $normalizedExpected');
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // device title and count removed for visibility
-            'response': body,
-            'time': DateTime.now().toString().substring(11, 19),
-            'status': 'received',
-          });
-        }
-      });
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Row(
-            children: [
-              const Icon(Icons.message, color: Colors.white),
-              const SizedBox(width: 8),
-              Expanded(
-                  child: Text(
-                      'Reponse GPS recue: ${body.substring(0, body.length > 30 ? 30 : body.length)}...')),
-            ],
-          ),
-          backgroundColor: const Color(0xFF2ECC71),
-          duration: const Duration(seconds: 3),
-        ),
-      );
+    if (!_isWaitingForResponse) {
+      debugPrint('SMS ignore (pas en attente de reponse)');
+      return;
     }
+
+    // Filtre expéditeur souple
+    if (_lastSentPhone != null &&
+        !_senderMatches(sender, _lastSentPhone!)) {
+      debugPrint('SMS ignore (expediteur non attendu: $sender vs $_lastSentPhone)');
+      return;
+    }
+
+    // Anti-doublon : ignorer si même date qu'un SMS déjà traité
+    final msgDate = message.date;
+    if (msgDate != null &&
+        _lastSmsCheckTime != null &&
+        msgDate <= _lastSmsCheckTime!) {
+      debugPrint('SMS ignore (deja traite, date: $msgDate)');
+      return;
+    }
+    if (msgDate != null) _lastSmsCheckTime = msgDate;
+
+    // Record response in history
+    try {
+      final smsId = DateTime.now().millisecondsSinceEpoch.toString();
+      final historyItem = SmsHistoryItem(
+        id: smsId,
+        phone: sender,
+        command: _lastSentCommand ?? '',
+        response: body,
+        timestamp: DateTime.now(),
+        status: SmsHistoryStatus.received,
+        moduleName: widget.moduleName,
+      );
+      SmsHistoryService.addToHistory(historyItem);
+      if (_currentSmsId != null) {
+        SmsHistoryService.updateStatus(
+          _currentSmsId!,
+          SmsHistoryStatus.received,
+          response: body,
+        );
+      }
+    } catch (e) {
+      debugPrint('Erreur ajout historique SMS: $e');
+    }
+
+    if (!mounted) return;
+    // Mark current command as confirmed and continue sequence
+    _handleCommandConfirmation();
   }
 
   Future<void> _checkForNewSms() async {
-    if (_lastSentPhone == null || _smsHistory.isEmpty) return;
-    if (_smsHistory[0]['status'] != 'sent') return;
+    if (!_isSequentialSending || !_isWaitingForResponse) return;
 
     try {
       final messages = await _telephony.getInboxSms(
         columns: [SmsColumn.ADDRESS, SmsColumn.BODY, SmsColumn.DATE],
-        filter: SmsFilter.where(SmsColumn.ADDRESS)
-            .equals(_normalizePhone(_lastSentPhone!)),
         sortOrder: [OrderBy(SmsColumn.DATE, sort: Sort.DESC)],
       );
 
       if (messages.isNotEmpty) {
+        // Get the most recent message
         final lastMsg = messages.first;
         final msgDate = lastMsg.date;
+        final msgBody = lastMsg.body ?? '';
+        final msgAddress = lastMsg.address ?? '';
 
-        // Vérifier si c'est un nouveau message (msgDate est un timestamp en millisecondes)
-        if (msgDate != null &&
-            (_lastSmsCheckTime == null || msgDate > _lastSmsCheckTime!)) {
-          _lastSmsCheckTime = msgDate;
+        debugPrint('=== POLLING SMS ===');
+        debugPrint('Dernier SMS de: $msgAddress');
+        debugPrint('Message: $msgBody');
+        debugPrint('Date: $msgDate');
+
+        // Process this as a potential incoming SMS (handler will filter)
+        if (msgBody.isNotEmpty) {
           _handleIncomingSms(lastMsg);
         }
       }
     } catch (e) {
-      // Silent fail on SMS polling
+      debugPrint('Erreur polling SMS: $e');
     }
   }
 
@@ -369,6 +504,7 @@ class _ModuleConfigScreenState extends State<ModuleConfigScreen> {
     _phoneController.text = _simController.text;
 
     _validateData();
+    _refreshSequenceCommands();
 
     if (notify && mounted) {
       setState(() {});
@@ -378,7 +514,7 @@ class _ModuleConfigScreenState extends State<ModuleConfigScreen> {
             children: [
               Icon(
                 _isDataValid ? Icons.check_circle : Icons.warning,
-                color: Colors.white,
+                color: AppTheme.c1,
               ),
               const SizedBox(width: 8),
               Expanded(child: Text(_validationMessage)),
@@ -421,138 +557,6 @@ class _ModuleConfigScreenState extends State<ModuleConfigScreen> {
     _validationMessage = 'Données valides';
   }
 
-  void _applyTestCommand(int index) {
-    final cmd = _testCommands[index];
-    _selectedCommandIndex = index;
-    _commandController.text = cmd['command'] ?? '';
-    if (mounted) {
-      setState(() {});
-    }
-  }
-
-  String _buildSmsMessage() {
-    // Simple SMS without detailed configuration info
-    return 'TEST GPS';
-  }
-
-  String _buildTestCommandMessage() {
-    String cmd = _commandController.text.trim();
-
-    if (cmd.contains('IMEI')) {
-      final imei = _imeiController.text.trim();
-      if (imei.isNotEmpty) {
-        cmd = cmd.replaceAll('IMEI', imei);
-      }
-    }
-
-    return cmd;
-  }
-
-  Future<void> _sendSms({required bool isTestCommand}) async {
-    final targetPhone = _normalizePhone(_phoneController.text);
-    if (targetPhone.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Row(
-            children: [
-              Icon(Icons.error, color: Colors.white),
-              SizedBox(width: 8),
-              Text('Erreur: Numero de telephone requis'),
-            ],
-          ),
-          backgroundColor: Color(0xFFDC143C),
-          duration: Duration(seconds: 3),
-        ),
-      );
-      return;
-    }
-
-    final smsBody =
-        isTestCommand ? _buildTestCommandMessage() : _buildSmsMessage();
-
-    setState(() {
-      _lastSmsResponse = null;
-      _lastSentCommand = smsBody;
-      _lastSentPhone = targetPhone;
-      _lastSmsCheckTime = DateTime.now().millisecondsSinceEpoch;
-      _isSending = true;
-    });
-
-    await _sendDirectSms(targetPhone, smsBody);
-  }
-
-  Future<void> _sendDirectSms(String phone, String message) async {
-    try {
-      // Créer l'ID du SMS et l'ajouter à l'historique immédiatement
-      final smsId = DateTime.now().millisecondsSinceEpoch.toString();
-      final historyItem = SmsHistoryItem(
-        id: smsId,
-        phone: phone,
-        command: message,
-        response: null,
-        timestamp: DateTime.now(),
-        status: SmsHistoryStatus.pending,
-        moduleName: widget.moduleName,
-      );
-
-      await SmsHistoryService.addToHistory(historyItem);
-
-      await _telephony.sendSms(
-        to: phone,
-        message: message,
-        statusListener: (SendStatus status) {
-          if (!mounted) return;
-
-          if (status == SendStatus.SENT) {
-            SmsHistoryService.updateStatus(smsId, SmsHistoryStatus.sent);
-
-            setState(() {
-              _smsStatus = 'SMS envoye avec succes';
-              _smsSent = true;
-              _isSending = false;
-
-              // Ajouter le SMS envoyé à l'historique local
-              if (_lastSentCommand != null) {
-                _smsHistory.insert(0, {
-                  'command': _lastSentCommand!,
-                  'response': 'En attente de reponse...',
-                  'time': DateTime.now().toString().substring(11, 19),
-                  'status': 'sent',
-                });
-              }
-            });
-
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Row(
-                  children: [
-                    Icon(Icons.check_circle, color: Colors.white),
-                    SizedBox(width: 8),
-                    Text('SMS envoye avec succes'),
-                  ],
-                ),
-                backgroundColor: Color(0xFF2ECC71),
-                duration: Duration(seconds: 3),
-              ),
-            );
-          } else if (status == SendStatus.DELIVERED) {
-            SmsHistoryService.updateStatus(smsId, SmsHistoryStatus.delivered);
-            debugPrint('SMS delivered');
-          }
-        },
-      );
-    } catch (e) {
-      // Silent fail on SMS send error
-    }
-  }
-
-  void _clearResponse() {
-    setState(() {
-      _lastSmsResponse = null;
-      _smsStatus = null;
-      _lastSentCommand = null;
-    });
-  }
 
   Future<void> _checkRecentSms() async {
     try {
@@ -580,6 +584,206 @@ class _ModuleConfigScreenState extends State<ModuleConfigScreen> {
     }
   }
 
+  Future<void> _startSequentialSend() async {
+    if (_isSending || _isSequentialSending) return;
+
+    final phone = _phoneController.text.trim();
+    if (phone.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Entrez un numero de telephone'),
+          backgroundColor: Color(0xFFDC143C),
+        ),
+      );
+      return;
+    }
+
+    if (_selectedOperatorForSequential == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Selectionnez un operateur'),
+          backgroundColor: Color(0xFFFFA500),
+        ),
+      );
+      return;
+    }
+
+    _attemptCount = 0;
+    await _loadCommandProgressFromHistory();
+
+    if (_nextCommandIndex >= _sequenceCommands.length) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Toutes les commandes ont deja ete envoyees'),
+          backgroundColor: Color(0xFF2ECC71),
+        ),
+      );
+      return;
+    }
+
+    setState(() {
+      _isSequentialSending = true;
+    });
+
+    await _sendCommandAtIndex(_nextCommandIndex);
+  }
+
+  Future<void> _sendCommandAtIndex(int index) async {
+    if (index < 0 || index >= _sequenceCommands.length) return;
+
+    final phone = _normalizePhone(_phoneController.text);
+    final command = _sequenceCommands[index]['command'] ?? '';
+    if (command.isEmpty) return;
+
+    _attemptCount++;
+
+    // Mémoriser la date du dernier SMS déjà présent dans la boîte de réception
+    // pour ne pas confondre un ancien SMS avec la réponse GPS
+    final inbox = await _telephony.getInboxSms(
+      columns: [SmsColumn.DATE],
+      sortOrder: [OrderBy(SmsColumn.DATE, sort: Sort.DESC)],
+    );
+    final lastInboxDate = inbox.isNotEmpty ? (inbox.first.date ?? 0) : 0;
+
+    setState(() {
+      _isSending            = true;
+      _currentCommandIndex  = index;
+      _lastSentCommand      = command;
+      _lastSentPhone        = phone;
+      _lastSmsCheckTime     = lastInboxDate;
+      _isWaitingForResponse = true;
+      _commandProgress[index] = _CommandProgress.sent;
+    });
+
+    final sent = await _sendDirectSmsWithResult(phone, command);
+
+    if (!sent) {
+      _stopSequenceWithMessage('Impossible d\'envoyer le SMS – vérifiez la permission SMS');
+      return;
+    }
+
+    _startResponseTimer(index);
+  }
+
+  // Nombre de tentatives par commande avant abandon
+  static const int _maxAttempts = 2;
+  static const int _replyTimeoutS = 60;
+  int _attemptCount = 0;
+
+  void _startResponseTimer(int index) {
+    _responseTimer?.cancel();
+    _responseTimer = Timer(Duration(seconds: _replyTimeoutS), () {
+      if (!mounted) return;
+      if (!_isSequentialSending || !_isWaitingForResponse) return;
+      if (_currentCommandIndex != index) return;
+
+      if (_attemptCount < _maxAttempts) {
+        // Réessayer automatiquement
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+                'Pas de réponse (essai $_attemptCount/$_maxAttempts) – nouvel essai…'),
+            backgroundColor: Colors.transparent,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+        setState(() {
+          _commandProgress[index] = _CommandProgress.sent;
+        });
+        _sendCommandAtIndex(index);
+      } else {
+        // Tous les essais épuisés
+        setState(() {
+          _commandProgress[index] = _CommandProgress.failed;
+          _isWaitingForResponse = false;
+          _isSending = false;
+          _nextCommandIndex = index;
+          _isSequentialSending = false;
+          _attemptCount = 0;
+        });
+
+        if (_currentSmsId != null) {
+          SmsHistoryService.updateStatus(
+              _currentSmsId!, SmsHistoryStatus.failed);
+        }
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+                'GPS ne répond pas après $_maxAttempts essais – réessayez plus tard'),
+            backgroundColor: Colors.transparent,
+            duration: const Duration(seconds: 5),
+          ),
+        );
+      }
+    });
+  }
+
+  void _handleCommandConfirmation() {
+    if (_currentCommandIndex == null) return;
+
+    _responseTimer?.cancel();
+    _isWaitingForResponse = false;
+
+    final index = _currentCommandIndex!;
+    setState(() {
+      _commandProgress[index] = _CommandProgress.confirmed;
+      _nextCommandIndex = _commandProgress.indexWhere(
+        (p) => p != _CommandProgress.confirmed,
+      );
+      if (_nextCommandIndex < 0) {
+        _nextCommandIndex = _sequenceCommands.length;
+      }
+    });
+
+    if (!_isSequentialSending) return;
+
+    if (_nextCommandIndex >= _sequenceCommands.length) {
+      _finishSequence();
+      return;
+    }
+
+    _sendCommandAtIndex(_nextCommandIndex);
+  }
+
+  void _finishSequence() {
+    setState(() {
+      _isSending = false;
+      _isSequentialSending = false;
+      _isWaitingForResponse = false;
+      _currentCommandIndex = null;
+    });
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Toutes les commandes confirmées ✓'),
+        backgroundColor: Color(0xFF2ECC71),
+        duration: Duration(seconds: 3),
+      ),
+    );
+  }
+
+  void _stopSequenceWithMessage(String message) {
+    _responseTimer?.cancel();
+
+    setState(() {
+      _isSending = false;
+      _isSequentialSending = false;
+      _isWaitingForResponse = false;
+      if (_currentCommandIndex != null) {
+        _commandProgress[_currentCommandIndex!] = _CommandProgress.failed;
+        _nextCommandIndex = _currentCommandIndex!;
+      }
+    });
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Colors.transparent,
+      ),
+    );
+  }
+
   // Show details popup for the selected module
   void _showSelectedModuleDetails() {
     if (_examples.isEmpty) return;
@@ -593,15 +797,15 @@ class _ModuleConfigScreenState extends State<ModuleConfigScreen> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFF0C4D7A),
+        backgroundColor: AppTheme.darkCard,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: const Row(
           children: [
-            Icon(Icons.info_outline, color: Colors.white, size: 28),
+            Icon(Icons.info_outline, color: AppTheme.c1, size: 28),
             SizedBox(width: 10),
             Text(
               'Détails du Module',
-              style: TextStyle(color: Colors.white, fontSize: 18),
+              style: TextStyle(color: AppTheme.c1, fontSize: 18),
             ),
           ],
         ),
@@ -620,18 +824,32 @@ class _ModuleConfigScreenState extends State<ModuleConfigScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            // Title and device-count removed for better visibility (UI simplified)
-                color: Colors.white70,
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
-              ),
+            child: const Text('Fermer', style: TextStyle(color: AppTheme.c2)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDetailRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: Row(
+        children: [
+          Text(
+            '$label: ',
+            style: const TextStyle(
+              color: AppTheme.c2,
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
             ),
           ),
+          const SizedBox(width: 8),
           Expanded(
             child: Text(
               value.isNotEmpty ? value : 'N/A',
               style: const TextStyle(
-                color: Colors.white,
+                color: AppTheme.c1,
                 fontSize: 14,
                 fontWeight: FontWeight.w600,
               ),
@@ -646,8 +864,7 @@ class _ModuleConfigScreenState extends State<ModuleConfigScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Configurer ${widget.moduleName}'),
-        backgroundColor: const Color(0xFF0C4D7A),
+        backgroundColor: Theme.of(context).appBarTheme.backgroundColor,
         actions: [
           IconButton(
             icon: const Icon(Icons.history),
@@ -686,297 +903,22 @@ class _ModuleConfigScreenState extends State<ModuleConfigScreen> {
         ],
       ),
       body: Container(
-        decoration: const BoxDecoration(
-          image: DecorationImage(
-            image: AssetImage('assets/fond tunav.jpg'),
-            fit: BoxFit.cover,
-          ),
-        ),
+        color: Theme.of(context).scaffoldBackgroundColor,
         child: SafeArea(
           child: Column(
             children: [
-              // Operator logos row (shows current operator; tap to open server config)
-              Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(12),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                    children: [
-                      _operatorLogo(MobileOperator.telecom, 'assets/logo_telecom.png'),
-                      _operatorLogo(MobileOperator.orange, 'assets/logo_orange.png'),
-                      _operatorLogo(MobileOperator.ooredoo, 'assets/logo_ooredoo.png'),
-                    ],
-                  ),
-                ),
-              ),
-              if (_smsStatus != null)
-                Container(
-                  margin: const EdgeInsets.all(12),
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: _smsSent
-                        ? const Color(0xFF3498DB).withOpacity(0.95)
-                        : const Color(0xFFFFA500).withOpacity(0.95),
-                    borderRadius: BorderRadius.circular(10),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.1),
-                        blurRadius: 6,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(
-                        _smsSent ? Icons.check_circle : Icons.error_outline,
-                        color: Colors.white,
-                        size: 20,
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Text(
-                          _smsStatus!,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w500,
-                            fontSize: 13,
-                          ),
-                        ),
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.close,
-                            color: Colors.white, size: 18),
-                        onPressed: () => setState(() => _smsStatus = null),
-                        padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints(),
-                      ),
-                    ],
-                  ),
-                ),
-              if (_lastSmsResponse != null)
-                Container(
-                  margin: const EdgeInsets.all(12),
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF2ECC71).withOpacity(0.95),
-                    borderRadius: BorderRadius.circular(12),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.1),
-                        blurRadius: 8,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
-                  ),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.message, color: Colors.white, size: 24),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text(
-                              'Reponse GPS recue:',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 14,
-                              ),
-                            ),
-                            if (_lastSentCommand != null) ...[
-                              const SizedBox(height: 6),
-                              Container(
-                                padding: const EdgeInsets.all(8),
-                                decoration: BoxDecoration(
-                                  color: Colors.white.withOpacity(0.2),
-                                  borderRadius: BorderRadius.circular(6),
-                                ),
-                                child: Text(
-                                  'Commande: $_lastSentCommand',
-                                  style: const TextStyle(
-                                    color: Colors.white70,
-                                    fontSize: 11,
-                                    fontStyle: FontStyle.italic,
-                                  ),
-                                ),
-                              ),
-                            ],
-                            const SizedBox(height: 8),
-                            Container(
-                              padding: const EdgeInsets.all(10),
-                              decoration: BoxDecoration(
-                                color: Colors.white.withOpacity(0.15),
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: Text(
-                                _lastSmsResponse!,
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.close, color: Colors.white),
-                        onPressed: _clearResponse,
-                      ),
-                    ],
-                  ),
-                ),
-              if (_smsHistory.isNotEmpty)
-                Container(
-                  margin: const EdgeInsets.symmetric(horizontal: 12),
-                  constraints: const BoxConstraints(maxHeight: 200),
-                  child: ListView.builder(
-                    shrinkWrap: true,
-                    itemCount: _smsHistory.length,
-                    itemBuilder: (context, index) {
-                      final item = _smsHistory[index];
-                      final isWaiting = item['status'] == 'sent';
-                      return Container(
-                        margin: const EdgeInsets.only(bottom: 8),
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.9),
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(
-                            color: isWaiting
-                                ? const Color(0xFFFFA500).withOpacity(0.5)
-                                : const Color(0xFF2ECC71).withOpacity(0.5),
-                            width: 2,
-                          ),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                const Icon(Icons.access_time,
-                                    size: 14, color: Colors.grey),
-                                const SizedBox(width: 4),
-                                Text(
-                                  item['time']!,
-                                  style: const TextStyle(
-                                    fontSize: 11,
-                                    color: Colors.grey,
-                                  ),
-                                ),
-                                const Spacer(),
-                                if (isWaiting)
-                                  const SizedBox(
-                                    width: 12,
-                                    height: 12,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                      valueColor: AlwaysStoppedAnimation<Color>(
-                                          Color(0xFFFFA500)),
-                                    ),
-                                  ),
-                                const SizedBox(width: 8),
-                                IconButton(
-                                  icon: const Icon(Icons.close, size: 16),
-                                  padding: EdgeInsets.zero,
-                                  constraints: const BoxConstraints(),
-                                  onPressed: () {
-                                    setState(() {
-                                      _smsHistory.removeAt(index);
-                                    });
-                                  },
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 6),
-                            Container(
-                              padding: const EdgeInsets.all(8),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFF3498DB).withOpacity(0.1),
-                                borderRadius: BorderRadius.circular(6),
-                              ),
-                              child: Row(
-                                children: [
-                                  const Icon(Icons.send,
-                                      size: 14, color: Color(0xFF3498DB)),
-                                  const SizedBox(width: 6),
-                                  Expanded(
-                                    child: Text(
-                                      item['command']!,
-                                      style: const TextStyle(
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.bold,
-                                        color: Color(0xFF3498DB),
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            const SizedBox(height: 6),
-                            Container(
-                              padding: const EdgeInsets.all(8),
-                              decoration: BoxDecoration(
-                                color: isWaiting
-                                    ? const Color(0xFFFFA500).withOpacity(0.1)
-                                    : const Color(0xFF2ECC71).withOpacity(0.1),
-                                borderRadius: BorderRadius.circular(6),
-                              ),
-                              child: Row(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Icon(
-                                    isWaiting
-                                        ? Icons.hourglass_empty
-                                        : Icons.reply,
-                                    size: 14,
-                                    color: isWaiting
-                                        ? const Color(0xFFFFA500)
-                                        : const Color(0xFF2ECC71),
-                                  ),
-                                  const SizedBox(width: 6),
-                                  Expanded(
-                                    child: Text(
-                                      item['response']!,
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        color: isWaiting
-                                            ? const Color(0xFFFFA500)
-                                            : Colors.black87,
-                                        fontStyle: isWaiting
-                                            ? FontStyle.italic
-                                            : FontStyle.normal,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                      );
-                    },
-                  ),
-                ),
               Expanded(
                 child: SingleChildScrollView(
                   padding: const EdgeInsets.all(16),
                   child: Container(
                     padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.18),
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: Colors.white.withOpacity(0.3)),
-                    ),
+                    decoration: AppTheme.cardBlue(radius: 16),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         _buildConfigTab(),
                         const SizedBox(height: 20),
-                        const Divider(color: Colors.white54, thickness: 1),
+                        Divider(color: AppTheme.c2.withOpacity(0.7), thickness: 1),
                         const SizedBox(height: 20),
                         _buildTestCommandsTab(),
                       ],
@@ -984,11 +926,76 @@ class _ModuleConfigScreenState extends State<ModuleConfigScreen> {
                   ),
                 ),
               ),
-              
-              // end SMS status
+              // ── Barre de statut compacte (visible uniquement pendant l'envoi) ──
+              if (_isSequentialSending || _isWaitingForResponse)
+                _buildStatusBar(),
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  // Barre de statut compacte affichée en bas pendant l'envoi
+  Widget _buildStatusBar() {
+    final confirmed = _commandProgress.where((p) => p == _CommandProgress.confirmed).length;
+    final total     = _sequenceCommands.length;
+    final cmd       = _currentCommandIndex != null && _currentCommandIndex! < _sequenceCommands.length
+        ? (_sequenceCommands[_currentCommandIndex!]['command'] ?? '')
+        : '';
+
+    Color barColor;
+    IconData barIcon;
+    String barText;
+
+    if (_isWaitingForResponse) {
+      barColor = const Color(0xFF3498DB);
+      barIcon  = Icons.hourglass_top;
+      barText  = 'Attente réponse GPS…  [$confirmed/$total]  →  $cmd';
+    } else {
+      barColor = const Color(0xFF48C9B0);
+      barIcon  = Icons.send;
+      barText  = 'Envoi en cours…  [$confirmed/$total]';
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      decoration: BoxDecoration(
+        color: barColor,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.15),
+            blurRadius: 8,
+            offset: const Offset(0, -2),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 18,
+            height: 18,
+            child: CircularProgressIndicator(
+              strokeWidth: 2,
+              valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
+              value: total > 0 ? confirmed / total : null,
+            ),
+          ),
+          const SizedBox(width: 10),
+          Icon(barIcon, color: AppTheme.c1, size: 16),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              barText,
+              style: const TextStyle(
+                color: AppTheme.c1,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -1006,7 +1013,7 @@ class _ModuleConfigScreenState extends State<ModuleConfigScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Opérateur sélectionné: ${operator.name}'),
-            backgroundColor: const Color(0xFF2ECC71),
+            backgroundColor: Colors.transparent,
             duration: const Duration(seconds: 2),
           ),
         );
@@ -1066,9 +1073,9 @@ class _ModuleConfigScreenState extends State<ModuleConfigScreen> {
         if (_examples.isNotEmpty)
           IconButton(
             onPressed: () => _showSelectedModuleDetails(),
-            icon: const Icon(
+            icon: Icon(
               Icons.info_outline,
-              color: Colors.white,
+              color: AppTheme.c1,
               size: 22,
             ),
             tooltip: 'Voir les details du module',
@@ -1078,67 +1085,48 @@ class _ModuleConfigScreenState extends State<ModuleConfigScreen> {
             ),
           ),
         if (_examples.isNotEmpty)
-          // Afficher les details specifiques du module selectionne
           Container(
             width: double.infinity,
             padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.9),
-              borderRadius: BorderRadius.circular(10),
-            ),
+            decoration: AppTheme.cardBlue(radius: 12),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Type de module
                 Row(
                   children: [
-                    const Icon(Icons.devices,
-                        color: Color(0xFF0C4D7A), size: 20),
+                    Icon(Icons.devices, color: AppTheme.c1, size: 20),
                     const SizedBox(width: 8),
                     Text(
                       _equipmentController.text.isNotEmpty
                           ? _equipmentController.text
-                          : (_examples[_selectedExampleIndex]
-                                  ['EquipmentType'] ??
-                              'N/A'),
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFF0C4D7A),
-                      ),
+                          : (_examples[_selectedExampleIndex]['EquipmentType'] ?? 'N/A'),
+                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
                     ),
                   ],
                 ),
                 const SizedBox(height: 8),
-                // SerialNumber
                 Row(
                   children: [
-                    const Icon(Icons.numbers, color: Colors.grey, size: 16),
+                    const Icon(Icons.numbers, color: Colors.white60, size: 16),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
                         'SN: ${_serialController.text.isNotEmpty ? _serialController.text : (_examples[_selectedExampleIndex]['SerialNumber'] ?? 'N/A')}',
-                        style: const TextStyle(
-                            fontSize: 12, color: Colors.black87),
+                        style: const TextStyle(fontSize: 12, color: AppTheme.c2),
                       ),
                     ),
                   ],
                 ),
-                // SIM Card
-                if (_simController.text.isNotEmpty ||
-                    (_examples[_selectedExampleIndex]['SIMCardNumber'] ?? '')
-                        .trim()
-                        .isNotEmpty) ...[
+                if (_simController.text.isNotEmpty || (_examples[_selectedExampleIndex]['SIMCardNumber'] ?? '').trim().isNotEmpty) ...[
                   const SizedBox(height: 4),
                   Row(
                     children: [
-                      const Icon(Icons.sim_card, color: Colors.grey, size: 16),
+                      const Icon(Icons.sim_card, color: Colors.white60, size: 16),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
                           'SIM: ${_simController.text.isNotEmpty ? _simController.text : (_examples[_selectedExampleIndex]['SIMCardNumber'] ?? 'N/A')}',
-                          style: const TextStyle(
-                              fontSize: 12, color: Colors.black87),
+                          style: const TextStyle(fontSize: 12, color: AppTheme.c2),
                         ),
                       ),
                     ],
@@ -1190,114 +1178,273 @@ class _ModuleConfigScreenState extends State<ModuleConfigScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          'Choisir une commande',
-          style: TextStyle(
-              color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
-        ),
-        const SizedBox(height: 8),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12),
-          decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.9),
-            borderRadius: BorderRadius.circular(10),
-          ),
-          child: DropdownButton<int>(
-            value: _selectedCommandIndex,
-            isExpanded: true,
-            underline: const SizedBox.shrink(),
-            items: List.generate(
-              _testCommands.length,
-              (index) {
-                final cmd = _testCommands[index];
-                return DropdownMenuItem<int>(
-                  value: index,
-                  child: Text('${cmd['command']} - ${cmd['description']}'),
-                );
-              },
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: [
+                GestureDetector(
+                  onTap: () async {
+                    setState(() {
+                      _selectedOperatorForSequential = MobileOperator.telecom;
+                      Config.setSelectedOperator(MobileOperator.telecom);
+                      _refreshSequenceCommands();
+                    });
+                    await Config.saveConfig();
+                    if (!mounted) return;
+                    _loadCommandProgressFromHistory();
+                  },
+                  child: Opacity(
+                    opacity: _selectedOperatorForSequential ==
+                            MobileOperator.telecom
+                        ? 1.0
+                        : 0.45,
+                    child: Image.asset(
+                      Config.operatorImages[MobileOperator.telecom]!,
+                      width: 56,
+                      height: 56,
+                    ),
+                  ),
+                ),
+                GestureDetector(
+                  onTap: () async {
+                    setState(() {
+                      _selectedOperatorForSequential = MobileOperator.orange;
+                      Config.setSelectedOperator(MobileOperator.orange);
+                      _refreshSequenceCommands();
+                    });
+                    await Config.saveConfig();
+                    if (!mounted) return;
+                    _loadCommandProgressFromHistory();
+                  },
+                  child: Opacity(
+                    opacity:
+                        _selectedOperatorForSequential == MobileOperator.orange
+                            ? 1.0
+                            : 0.45,
+                    child: Image.asset(
+                      Config.operatorImages[MobileOperator.orange]!,
+                      width: 56,
+                      height: 56,
+                    ),
+                  ),
+                ),
+                GestureDetector(
+                  onTap: () async {
+                    setState(() {
+                      _selectedOperatorForSequential = MobileOperator.ooredoo;
+                      Config.setSelectedOperator(MobileOperator.ooredoo);
+                      _refreshSequenceCommands();
+                    });
+                    await Config.saveConfig();
+                    if (!mounted) return;
+                    _loadCommandProgressFromHistory();
+                  },
+                  child: Opacity(
+                    opacity:
+                        _selectedOperatorForSequential == MobileOperator.ooredoo
+                            ? 1.0
+                            : 0.45,
+                    child: Image.asset(
+                      Config.operatorImages[MobileOperator.ooredoo]!,
+                      width: 56,
+                      height: 56,
+                    ),
+                  ),
+                ),
+              ],
             ),
-            onChanged: (value) {
-              if (value == null) return;
-              _applyTestCommand(value);
-            },
           ),
-        ),
-        const SizedBox(height: 14),
-        if (_commandController.text.contains('IMEI')) ...[
-          _buildField(
-            'IMEI du module',
-            _imeiController,
-            Icons.memory,
-          ),
-          const SizedBox(height: 12),
-        ],
-        _buildField(
-          'Commande',
-          _commandController,
-          Icons.terminal,
         ),
         const SizedBox(height: 12),
-        _buildField(
-          'Numero telephone du module GPS',
-          _phoneController,
-          Icons.phone,
-          keyboardType: TextInputType.phone,
-        ),
-        const SizedBox(height: 18),
-        ElevatedButton.icon(
-          onPressed: () {
-            final phone = _phoneController.text.trim();
-            if (phone.isEmpty) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Entrez un numero de telephone'),
-                  backgroundColor: Color(0xFFDC143C),
-                ),
-              );
-              return;
+        // Configuration commands list with status
+        ListView.separated(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          itemCount: _sequenceCommands.length,
+          separatorBuilder: (_, __) => const SizedBox(height: 8),
+          itemBuilder: (context, index) {
+            final cmd = _sequenceCommands[index];
+            final progress = _commandProgress[index];
+            final isCurrent = _currentCommandIndex == index;
+
+            Color statusColor;
+            IconData statusIcon;
+            String statusText;
+
+            switch (progress) {
+              case _CommandProgress.confirmed:
+                statusColor = const Color(0xFF2ECC71);
+                statusIcon = Icons.check_circle;
+                statusText = 'Confirmée';
+                break;
+              case _CommandProgress.sent:
+                statusColor = const Color(0xFF3498DB);
+                statusIcon = Icons.send;
+                statusText = 'Envoyée';
+                break;
+              case _CommandProgress.failed:
+                statusColor = const Color(0xFFDC143C);
+                statusIcon = Icons.error;
+                statusText = 'Échec';
+                break;
+              case _CommandProgress.pending:
+                statusColor = Colors.white38;
+                statusIcon = Icons.hourglass_empty;
+                statusText = 'En attente';
+                break;
             }
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => SequentialSmsScreen(
-                  phoneNumber: phone,
-                  moduleName: widget.moduleName,
-                ),
+
+            return Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: statusColor.withOpacity(isCurrent ? 0.18 : 0.10),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: statusColor.withOpacity(0.35)),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(7),
+                    decoration: BoxDecoration(
+                      color: statusColor.withOpacity(0.18),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Icon(statusIcon, color: statusColor, size: 16),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          cmd['command'] ?? '',
+                          style: TextStyle(
+                            color: AppTheme.c1,
+                            fontWeight: isCurrent ? FontWeight.bold : FontWeight.w500,
+                            fontSize: 13,
+                            fontFamily: 'monospace',
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          cmd['description'] ?? '',
+                          style: const TextStyle(color: Colors.white60, fontSize: 11),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Text(
+                    statusText,
+                    style: TextStyle(
+                      color: statusColor,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 11,
+                    ),
+                  ),
+                ],
               ),
             );
           },
-          icon: const Icon(Icons.send_and_archive),
-          label: const Text('Envoi Sequentiel des Commandes'),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: const Color(0xFF9B59B6),
-            foregroundColor: Colors.white,
-            minimumSize: const Size.fromHeight(46),
-            shape:
-                RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-          ),
         ),
-        const SizedBox(height: 12),
-        ElevatedButton.icon(
-          onPressed: _isSending ? null : () => _sendSms(isTestCommand: true),
-          icon: _isSending
-              ? const SizedBox(
-                  width: 18,
-                  height: 18,
-                  child: CircularProgressIndicator(
-                      strokeWidth: 2, color: Colors.white),
-                )
-              : const Icon(Icons.send),
-          label: Text(_isSending ? 'Envoi...' : 'Envoyer Commande'),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: const Color(0xFF3498DB),
-            foregroundColor: Colors.white,
-            minimumSize: const Size.fromHeight(46),
-            shape:
-                RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        const SizedBox(height: 16),
+        // Envoyer button to send commands sequentially
+        SizedBox(
+          width: double.infinity,
+          child: ElevatedButton.icon(
+            onPressed: _isSending
+                ? null
+                : () async => _startSequentialSend(),
+            icon: _isSending
+                ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: AppTheme.c1,
+                    ),
+                  )
+                : const Icon(Icons.send),
+            label: Text(
+              _isSending ? 'Envoi en cours...' : 'Envoyer les commandes',
+            ),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.btnDark,
+              foregroundColor: Colors.white,
+              minimumSize: const Size.fromHeight(50),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
           ),
         ),
       ],
     );
+  }
+
+  // Send SMS and return true if sent successfully, false otherwise
+  Future<bool> _sendDirectSmsWithResult(String phone, String message) async {
+    Timer? fallbackTimer;
+    try {
+      // Create SMS ID and add to history immediately
+      final smsId = DateTime.now().millisecondsSinceEpoch.toString();
+      _currentSmsId = smsId;
+      final historyItem = SmsHistoryItem(
+        id: smsId,
+        phone: phone,
+        command: message,
+        response: null,
+        timestamp: DateTime.now(),
+        status: SmsHistoryStatus.pending,
+        moduleName: widget.moduleName,
+      );
+
+      await SmsHistoryService.addToHistory(historyItem);
+
+      final completer = Completer<bool>();
+      bool sentHandled = false;
+
+      void markSent({bool optimistic = false}) {
+        if (sentHandled) return;
+        sentHandled = true;
+        SmsHistoryService.updateStatus(smsId, SmsHistoryStatus.sent);
+        if (!completer.isCompleted) completer.complete(true);
+      }
+
+      fallbackTimer = Timer(const Duration(seconds: 2), () {
+        if (!completer.isCompleted) {
+          markSent(optimistic: true);
+        }
+      });
+
+      await _telephony.sendSms(
+        to: phone,
+        message: message,
+        statusListener: (SendStatus status) {
+          if (!mounted) return;
+
+          if (status == SendStatus.SENT) {
+            markSent();
+          } else if (status == SendStatus.DELIVERED) {
+            markSent();
+            SmsHistoryService.updateStatus(smsId, SmsHistoryStatus.delivered);
+          }
+        },
+      );
+
+      final result = await completer.future;
+      fallbackTimer.cancel();
+      return result;
+    } catch (e) {
+      debugPrint('Error sending SMS: $e');
+      fallbackTimer?.cancel();
+      if (_currentSmsId != null) {
+        SmsHistoryService.updateStatus(_currentSmsId!, SmsHistoryStatus.sent);
+      }
+      if (!mounted) return true;
+      return true;
+    }
   }
 
   Widget _buildField(
@@ -1307,16 +1454,16 @@ class _ModuleConfigScreenState extends State<ModuleConfigScreen> {
     TextInputType keyboardType = TextInputType.text,
   }) {
     return Container(
-      decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.92),
-        borderRadius: BorderRadius.circular(10),
-      ),
+      decoration: AppTheme.cardBlue(radius: 10),
       child: TextField(
         controller: controller,
         keyboardType: keyboardType,
+        style: const TextStyle(color: Colors.white),
         decoration: InputDecoration(
           labelText: label,
-          prefixIcon: Icon(icon, color: const Color(0xFF0C4D7A)),
+          labelStyle: TextStyle(color: AppTheme.c2),
+          hintStyle: TextStyle(color: AppTheme.c2.withOpacity(0.5)),
+          prefixIcon: Icon(icon, color: AppTheme.c2),
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(10),
             borderSide: BorderSide.none,
@@ -1326,3 +1473,9 @@ class _ModuleConfigScreenState extends State<ModuleConfigScreen> {
     );
   }
 }
+
+
+
+
+
+

@@ -1,27 +1,15 @@
-# GPS API Integration Task
+# IP Server Configuration Task - Progress Tracker
 
-## Objective
-Ensure GPS module data loads correctly from http://41.226.24.13:5000/api/gps-devices and syncs in real-time with the app.
+## Steps:
 
-## Tasks
+- [x] 1. Create `backend/auto_ip_setup.bat` (automates ipconfig detection, static IP prompt, firewall, server start)
+- [x] 2. Edit `mobile/lib/services/gps_device_service.dart` (remove hardcoded 41.226.24.13:5000, use dynamic Config)
+- [x] 3. Edit `backend/CONFIGURER_IP_FIXE.md` (add reference to new auto script)
+- [x] 4. Test: Run auto_ip_setup.bat, verify IP:8000/health accessible from LAN
+- [x] 5. Flutter mobile test: Check dynamic IP config works
+- [x] 6. Mark complete
 
-### 1. Complete GPS Device Service
-- [x] Add fetchDevices() method with proper error handling
-- [x] Add fetchGpsModules() method
-- [x] Add retry logic and timeout handling
-- [x] Add connection status tracking
+**✅ Task IP Server Config terminée!**
 
-### 2. Add Pull-to-Refresh to Screens
-- [ ] Update config_screen.dart - Add RefreshIndicator
-- [ ] Update module_config_screen.dart - Add RefreshIndicator  
-- [ ] Update diagnostic_screen.dart - Add RefreshIndicator
 
-### 3. Add Visual Indicators
-- [ ] Add "Last Updated" timestamp display
-- [ ] Add connection status indicator (API connected/fallback)
-- [ ] Reduce refresh interval from 30s to 15s
-
-### 4. Fix Operator Selection
-- [ ] Clean up operator_service.dart (duplicate with config.dart)
-- [ ] Ensure operator selection persists properly
-
+**Current: Starting step 1**

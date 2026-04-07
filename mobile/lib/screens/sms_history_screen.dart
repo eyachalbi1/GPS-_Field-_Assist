@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../utils/app_theme.dart';
 import '../models/sms_history.dart';
 import '../services/sms_history_service.dart';
 
@@ -37,6 +38,8 @@ class _SmsHistoryScreenState extends State<SmsHistoryScreen> {
         return const Color(0xFFF39C12);
       case SmsHistoryStatus.failed:
         return const Color(0xFFE74C3C);
+      case SmsHistoryStatus.received:
+        return const Color(0xFF3498DB);
     }
   }
 
@@ -49,6 +52,8 @@ class _SmsHistoryScreenState extends State<SmsHistoryScreen> {
         return Icons.access_time;
       case SmsHistoryStatus.failed:
         return Icons.error;
+      case SmsHistoryStatus.received:
+        return Icons.reply;
     }
   }
 
@@ -190,8 +195,9 @@ class _SmsHistoryScreenState extends State<SmsHistoryScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Historique SMS'),
-        backgroundColor: const Color(0xFF0C4D7A),
+        title: const Text('Historique SMS', style: TextStyle(color: Colors.white)),
+        backgroundColor: Colors.transparent,
+        foregroundColor: AppTheme.c1,
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
@@ -241,15 +247,15 @@ class _SmsHistoryScreenState extends State<SmsHistoryScreen> {
             ? const Center(
                 child: CircularProgressIndicator(color: Colors.white))
             : _history.isEmpty
-                ? const Center(
+                ? Center(
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(Icons.inbox, size: 80, color: Colors.white54),
+                        Icon(Icons.inbox, size: 80, color: AppTheme.c2.withOpacity(0.7)),
                         SizedBox(height: 16),
                         Text(
                           'Aucun SMS envoyé',
-                          style: TextStyle(color: Colors.white70, fontSize: 18),
+                          style: TextStyle(color: AppTheme.c2, fontSize: 18),
                         ),
                       ],
                     ),
@@ -261,17 +267,7 @@ class _SmsHistoryScreenState extends State<SmsHistoryScreen> {
                       final item = _history[index];
                       return Container(
                         margin: const EdgeInsets.only(bottom: 12),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(12),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.1),
-                              blurRadius: 4,
-                              offset: const Offset(0, 2),
-                            ),
-                          ],
-                        ),
+                        decoration: AppTheme.cardBlue(radius: 12),
                         child: Column(
                           children: [
                             ListTile(
@@ -393,12 +389,10 @@ class _SmsHistoryScreenState extends State<SmsHistoryScreen> {
                                           size: 18),
                                       label: const Text('Voir'),
                                       style: ElevatedButton.styleFrom(
-                                        backgroundColor:
-                                            const Color(0xFF0C4D7A),
-                                        foregroundColor: Colors.white,
+                                        backgroundColor: AppTheme.skyBottom,
+                                        foregroundColor: AppTheme.c1,
                                         shape: RoundedRectangleBorder(
-                                          borderRadius:
-                                              BorderRadius.circular(8),
+                                          borderRadius: BorderRadius.circular(8),
                                         ),
                                       ),
                                     ),
@@ -415,3 +409,8 @@ class _SmsHistoryScreenState extends State<SmsHistoryScreen> {
     );
   }
 }
+
+
+
+
+

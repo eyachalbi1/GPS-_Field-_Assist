@@ -1,4 +1,6 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
+import '../utils/app_theme.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:telephony/telephony.dart';
 import '../utils/config.dart';
@@ -12,7 +14,6 @@ class ServerConfigScreen extends StatefulWidget {
 
 class _ServerConfigScreenState extends State<ServerConfigScreen> {
   final _ipController = TextEditingController();
-  final _portController = TextEditingController(text: '8000');
   final _phoneController = TextEditingController();
   bool _isSaving = false;
   bool _isSendingConfig = false;
@@ -42,7 +43,6 @@ class _ServerConfigScreenState extends State<ServerConfigScreen> {
   Future<void> _loadConfig() async {
     final prefs = await SharedPreferences.getInstance();
     final savedIp = prefs.getString('server_ip') ?? '';
-    final savedPort = prefs.getString('server_port') ?? '8000';
 
     // Charger l'opérateur sélectionné
     final savedOperator = prefs.getString('selected_operator');
@@ -59,7 +59,6 @@ class _ServerConfigScreenState extends State<ServerConfigScreen> {
     setState(() {
       _currentIp = savedIp.isNotEmpty ? savedIp : _getDefaultIp();
       _ipController.text = _currentIp;
-      _portController.text = savedPort;
       _operatorConfirmed = savedOperator != null && savedOperator.isNotEmpty;
     });
   }
@@ -75,6 +74,43 @@ class _ServerConfigScreenState extends State<ServerConfigScreen> {
       return '+${trimmed.substring(1).replaceAll(RegExp(r'[^0-9]'), '')}';
     }
     return trimmed.replaceAll(RegExp(r'[^0-9]'), '');
+  }
+
+  Future<bool> _sendSmsOptimistic({
+    required String phone,
+    required String message,
+  }) async {
+    try {
+      final hasPermission = await _telephony.requestSmsPermissions;
+      if (hasPermission != true) {
+        return false;
+      }
+
+      final completer = Completer<bool>();
+      final fallbackTimer = Timer(const Duration(seconds: 2), () {
+        if (!completer.isCompleted) {
+          completer.complete(true);
+        }
+      });
+
+      await _telephony.sendSms(
+        to: phone,
+        message: message,
+        statusListener: (status) {
+          if (status == SendStatus.SENT || status == SendStatus.DELIVERED) {
+            if (!completer.isCompleted) {
+              completer.complete(true);
+            }
+          }
+        },
+      );
+
+      final result = await completer.future;
+      fallbackTimer.cancel();
+      return result;
+    } catch (_) {
+      return false;
+    }
   }
 
   Future<void> _sendConfigSmsCommands() async {
@@ -113,61 +149,36 @@ class _ServerConfigScreenState extends State<ServerConfigScreen> {
       bool commandSuccess = false;
 
       for (int attempt = 1; attempt <= 2; attempt++) {
-        try {
-          // Envoyer la commande SMS
-          await _telephony.sendSms(
-            to: phone,
-            message: command,
-            statusListener: (status) {
-              if (status == SendStatus.SENT || status == SendStatus.DELIVERED) {
-                commandSuccess = true;
-              }
-            },
-          );
+        // Envoyer la commande SMS (succès optimiste si pas de statut)
+        commandSuccess = await _sendSmsOptimistic(
+          phone: phone,
+          message: command,
+        );
 
-          // Attendre un court délai pour recevoir le status
-          await Future.delayed(const Duration(seconds: 3));
-
-          if (!commandSuccess) {
-            // Notification demandée avant retry / passage à la suite
-            if (!mounted) break;
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('le message n est pas envoyé  refait l opération'),
-                backgroundColor: Colors.orange,
-                duration: Duration(seconds: 3),
-              ),
-            );
-            // si c'etait le premier essai, on réessaie
-            if (attempt == 1) {
-              await Future.delayed(const Duration(seconds: 2));
-              continue; // retry
-            } else {
-              failCount++;
-              break; // after second attempt, move to next command
-            }
-          } else {
-            successCount++;
-            break;
-          }
-        } catch (e) {
-          if (!mounted) break;
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('le message n est pas envoyé  refait l opération'),
-              backgroundColor: Colors.orange,
-              duration: Duration(seconds: 3),
-            ),
-          );
-          if (attempt == 1) {
-            await Future.delayed(const Duration(seconds: 2));
-            continue;
-          } else {
-            failCount++;
-            break;
-          }
+        if (commandSuccess) {
+          successCount++;
+          break;
         }
+
+        if (!mounted) break;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('le message n est pas envoyé  refait l opération'),
+            backgroundColor: Colors.orange,
+            duration: Duration(seconds: 3),
+          ),
+        );
+
+        if (attempt == 1) {
+          await Future.delayed(const Duration(seconds: 2));
+          continue;
+        }
+
+        failCount++;
+        break;
       }
+
+      await Future.delayed(const Duration(milliseconds: 400));
     }
 
     if (!mounted) return;
@@ -197,18 +208,17 @@ class _ServerConfigScreenState extends State<ServerConfigScreen> {
 
     final prefs = await SharedPreferences.getInstance();
     final ip = _ipController.text.trim();
-    final port = _portController.text.trim();
     
     // Sauvegarder les valeurs séparées (pour compatibilité)
     await prefs.setString('server_ip', ip);
-    await prefs.setString('server_port', port);
     await prefs.setString('selected_operator', _selectedOperator.name);
     
-    // Sauvegarder aussi l'URL complète (nouveau format)
-    await prefs.setString('server_url', 'http://$ip:$port');
+    // Sauvegarder l'URL login (port 8000) et l'IP API (port 5000)
+    await prefs.setString('server_url', 'http://$ip:8000');
+    await prefs.setString('api_ip', ip);
 
     // Mettre à jour la configuration statique
-    Config.setCustomUrl('http://$ip:$port');
+    Config.setCustomUrl('http://$ip:8000');
     Config.setSelectedOperator(_selectedOperator);
 
     setState(() => _isSaving = false);
@@ -236,7 +246,7 @@ class _ServerConfigScreenState extends State<ServerConfigScreen> {
             ElevatedButton(
               onPressed: () => Navigator.pop(context, true),
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF0066FF),
+                backgroundColor: AppTheme.skyBottom,
                 foregroundColor: Colors.white,
               ),
               child: const Text('Oui, envoyer'),
@@ -262,7 +272,6 @@ class _ServerConfigScreenState extends State<ServerConfigScreen> {
   @override
   void dispose() {
     _ipController.dispose();
-    _portController.dispose();
     _phoneController.dispose();
     super.dispose();
   }
@@ -430,16 +439,16 @@ class _ServerConfigScreenState extends State<ServerConfigScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Configuration Serveur'),
-        backgroundColor: const Color(0xFF0066FF),
-        foregroundColor: Colors.white,
+        backgroundColor: Colors.transparent,
+        foregroundColor: AppTheme.c1,
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Card(
+            Container(
+              decoration: AppTheme.cardBlue(radius: 12),
               child: Padding(
                 padding: const EdgeInsets.all(16),
                 child: Column(
@@ -447,7 +456,7 @@ class _ServerConfigScreenState extends State<ServerConfigScreen> {
                   children: [
                     const Row(
                       children: [
-                        Icon(Icons.wifi, color: Color(0xFF0066FF)),
+                        Icon(Icons.wifi, color: AppTheme.skyLight),
                         SizedBox(width: 8),
                         Text(
                           'Adresse du serveur',
@@ -464,18 +473,9 @@ class _ServerConfigScreenState extends State<ServerConfigScreen> {
                       decoration: const InputDecoration(
                         labelText: 'Adresse IP du PC',
                         hintText: '192.168.x.x',
+                        helperText: 'Login: port 8000  |  API GPS: port 5000',
                         border: OutlineInputBorder(),
                         prefixIcon: Icon(Icons.computer),
-                      ),
-                      keyboardType: TextInputType.number,
-                    ),
-                    const SizedBox(height: 12),
-                    TextField(
-                      controller: _portController,
-                      decoration: const InputDecoration(
-                        labelText: 'Port',
-                        border: OutlineInputBorder(),
-                        prefixIcon: Icon(Icons.settings_ethernet),
                       ),
                       keyboardType: TextInputType.number,
                     ),
@@ -496,7 +496,7 @@ class _ServerConfigScreenState extends State<ServerConfigScreen> {
                       child: ElevatedButton(
                         onPressed: _isSaving ? null : _saveConfig,
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF0066FF),
+                          backgroundColor: AppTheme.skyBottom,
                           foregroundColor: Colors.white,
                           padding: const EdgeInsets.symmetric(vertical: 16),
                         ),
@@ -535,8 +535,8 @@ class _ServerConfigScreenState extends State<ServerConfigScreen> {
               ),
             ),
             const SizedBox(height: 16),
-            Card(
-              color: Colors.orange[50],
+            Container(
+              decoration: AppTheme.cardBlue(radius: 12),
               child: Padding(
                 padding: const EdgeInsets.all(16),
                 child: Column(
@@ -569,8 +569,8 @@ class _ServerConfigScreenState extends State<ServerConfigScreen> {
               ),
             ),
             const SizedBox(height: 16),
-            Card(
-              color: Colors.blue[50],
+            Container(
+              decoration: AppTheme.cardBlue(radius: 12),
               child: Padding(
                 padding: const EdgeInsets.all(16),
                 child: Column(
@@ -602,3 +602,6 @@ class _ServerConfigScreenState extends State<ServerConfigScreen> {
     );
   }
 }
+
+
+

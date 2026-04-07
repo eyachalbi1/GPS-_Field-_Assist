@@ -1,6 +1,24 @@
 # GUIDE: CONFIGURER UNE IP FIXE POUR LE SERVEUR
 
+## 🚀 Option 0: Script Automatique (Recommandé)
+
+**`auto_ip_setup.bat`** fait tout automatiquement:
+
+1. **Détecte IP** avec `ipconfig | findstr "IPv4"`
+2. **Option IP fixe** (netsh, admin requis)
+3. **Ouvre pare-feu** port 8000
+4. **Démarre serveur** sur `0.0.0.0:8000`
+5. **Affiche URL mobile**: `http://VOTRE_IP:8000`
+
+```
+cd backend
+auto_ip_setup.bat  (clic droit "Exécuter en tant qu'admin")
+```
+
+**Test**: `http://IP_AFFICHEE:8000/health`
+
 ## Pourquoi une IP fixe ?
+
 
 Actuellement, votre serveur utilise l'IP dynamique `41.226.24.13` qui peut changer. 
 Pour que l'application mobile fonctionne toujours, vous devez configurer une IP fixe.
@@ -79,48 +97,15 @@ Ou exécuter: `configure_firewall.bat`
    ```
    Devrait retourner: `{"status":"healthy","service":"GPS Field Assist"}`
 
-3. Mettre à jour l'IP dans l'app mobile:
-   - Fichier: `mobile/lib/services/gps_device_service.dart`
-   - Ligne: `static const String apiUrl = 'http://41.226.24.13:5000/api/gps-devices';`
-   - Remplacer par votre IP fixe
+3. **App mobile**: IP/port dynamique via Paramètres (déjà configuré, fallback fixe corrigé)
 
-## IP actuelle dans l'application
 
-L'application mobile utilise actuellement:
-- **API GPS Devices**: `http://41.226.24.13:5000/api/gps-devices`
-- **Port serveur**: `8000` (mais l'app utilise le port 5000 ❌)
 
-⚠️ **ATTENTION**: Il y a une incohérence de port!
-- Le serveur tourne sur le port **8000**
-- L'app mobile cherche sur le port **5000**
-
-## Correction nécessaire
-
-Choisir l'une des options:
-
-### Option A: Changer le port du serveur à 5000
-Dans `start_server.bat`, remplacer:
-```
---port 8000
-```
-par:
-```
---port 5000
-```
-
-### Option B: Changer le port dans l'app mobile
-Dans `mobile/lib/services/gps_device_service.dart`, remplacer:
-```dart
-static const String apiUrl = 'http://41.226.24.13:5000/api/gps-devices';
-```
-par:
-```dart
-static const String apiUrl = 'http://41.226.24.13:8000/api/gps-devices';
-```
 
 ## Recommandation finale
 
-1. **Fixer l'IP** à `41.226.24.13` (Option 1 ou 2)
-2. **Utiliser le port 8000** (Option B ci-dessus)
-3. **Configurer le pare-feu** pour autoriser le port 8000
-4. **Tester** depuis l'app mobile
+1. **Exécuter** `backend/auto_ip_setup.bat` (admin) ✅
+2. **Configurer IP mobile** via app Paramètres avec IP affichée
+3. **Tester** `http://IP:8000/health` (téléphone)
+4. **Service 24/7**: `install_service.bat`
+

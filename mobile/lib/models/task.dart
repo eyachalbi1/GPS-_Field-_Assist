@@ -1,3 +1,5 @@
+import 'package:html/parser.dart' show parse;
+
 class Task {
   final String id;
   final String reference;
@@ -20,23 +22,47 @@ class Task {
   });
 
   factory Task.fromJson(Map<String, dynamic> json) {
+    // Nettoyer le HTML de la description
+    final rawDesc = json['description'] as String? ?? '';
+    final cleanDesc = rawDesc.isNotEmpty
+        ? parse(rawDesc).body?.text?.trim() ?? rawDesc
+        : '';
+
+    // Extraire date/heure depuis created_at
+    final createdAt = json['created_at'] as String? ?? '';
+    String startTime = '';
+    String endTime = '';
+    if (createdAt.isNotEmpty) {
+      final parts = createdAt.split(' ');
+      startTime = parts.length > 1 ? parts[1].substring(0, 5) : parts[0];
+      endTime = '';
+    }
+
     return Task(
       id: json['id'].toString(),
-      reference: json['reference'] ?? '',
-      name: json['name'] ?? '',
-      description: json['description'] ?? '',
-      partnerName: json['partner_name'] ?? '',
-      startTime: json['start_time'] ?? '',
-      endTime: json['end_time'] ?? '',
-      status: _parseStatus(json['status']),
+      reference: '#${json['id']}',
+      name: json['subject'] as String? ?? '',
+      description: cleanDesc.length > 200
+          ? '${cleanDesc.substring(0, 200)}...'
+          : cleanDesc,
+      partnerName: createdAt.isNotEmpty ? createdAt.split(' ')[0] : '',
+      startTime: startTime,
+      endTime: endTime,
+      status: _parseStatus(json['stage'] as String?),
     );
   }
 
-  static TaskStatus _parseStatus(String? status) {
-    switch (status?.toLowerCase()) {
-      case 'en_cours':
+  static TaskStatus _parseStatus(String? stage) {
+    switch (stage?.toLowerCase()) {
+      case 'done':
+        return TaskStatus.completed;
+      case 'planifié':
+      case 'planifie':
+      case 'in progress':
+      case 'en cours':
         return TaskStatus.inProgress;
-      case 'termine':
+      case 'cancelled':
+      case 'cancel':
         return TaskStatus.completed;
       default:
         return TaskStatus.todo;
@@ -52,11 +78,11 @@ enum TaskStatus {
   String get label {
     switch (this) {
       case TaskStatus.todo:
-        return 'À FAIRE';
+        return 'NOUVEAU';
       case TaskStatus.inProgress:
-        return 'EN COURS';
+        return 'PLANIFIÉ';
       case TaskStatus.completed:
-        return 'TERMINÉE';
+        return 'TERMINÉ';
     }
   }
 }

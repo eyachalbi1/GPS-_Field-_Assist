@@ -2,10 +2,14 @@ import 'package:flutter/material.dart';
 import '../models/task.dart';
 import '../services/task_service.dart';
 import '../services/auth_service.dart';
+import '../main.dart';
+import '../utils/app_theme.dart';
+import '../widgets/ai_alerts_widget.dart';
 import 'login_screen.dart';
 import 'assets_screen.dart';
 import 'diagnostic_screen.dart';
 import 'task_detail_screen.dart';
+import 'technician_dashboard_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -20,7 +24,6 @@ class _HomeScreenState extends State<HomeScreen> {
   List<Task> _tasks = [];
   bool _isLoading = false;
   String _currentPage = 'TODO';
-  bool _isDarkMode = false;
   String? _expandedTaskId;
 
   @override
@@ -32,208 +35,102 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _loadTasks() async {
     setState(() => _isLoading = true);
     try {
-      final apiTasks = await _taskService.getTasks();
-      final mergedTasks = [...apiTasks];
-      if (mergedTasks.length < 6) {
-        for (final fallbackTask in _fallbackTasks) {
-          if (mergedTasks.length == 6) {
-            break;
-          }
-          if (mergedTasks.any((task) => task.id == fallbackTask.id)) {
-            continue;
-          }
-          mergedTasks.add(fallbackTask);
-        }
-      }
-
-      mergedTasks.sort(_compareTasksByPriority);
-      _tasks = mergedTasks.take(6).toList();
+      final tasks = await _taskService.getTasks();
+      _sortTasks(tasks);
+      if (mounted) setState(() { _tasks = tasks; _isLoading = false; });
     } catch (e) {
       debugPrint('Error loading tasks: $e');
-      final fallbackTasks = [..._fallbackTasks]..sort(_compareTasksByPriority);
-      _tasks = fallbackTasks;
-    } finally {
-      if (mounted) {
-        setState(() => _isLoading = false);
-      }
+      if (mounted) setState(() => _isLoading = false);
     }
+  }
+
+  void _sortTasks(List<Task> tasks) {
+    tasks.sort((a, b) {
+      final pa = _statusPriority(a.status);
+      final pb = _statusPriority(b.status);
+      if (pa != pb) return pa.compareTo(pb);
+      return b.startTime.compareTo(a.startTime);
+    });
+  }
+
+  // Mise à jour locale immédiate — déplace la tâche en bas sans recharger l'API
+  void _markTaskDoneLocally(String taskId) {
+    setState(() {
+      final idx = _tasks.indexWhere((t) => t.id == taskId);
+      if (idx < 0) return;
+      final old = _tasks[idx];
+      _tasks[idx] = Task(
+        id: old.id, reference: old.reference, name: old.name,
+        description: old.description, partnerName: old.partnerName,
+        startTime: old.startTime, endTime: old.endTime,
+        status: TaskStatus.completed,
+      );
+      _sortTasks(_tasks);
+      _expandedTaskId = null;
+    });
   }
 
   int _statusPriority(TaskStatus status) {
     switch (status) {
-      case TaskStatus.todo:
-        return 0;
-      case TaskStatus.inProgress:
-        return 1;
-      case TaskStatus.completed:
-        return 2;
+      case TaskStatus.todo:       return 0; // New — en premier
+      case TaskStatus.inProgress: return 1; // Planifié — au milieu
+      case TaskStatus.completed:  return 2; // Done — à la fin
     }
   }
-
-  int _compareTasksByPriority(Task a, Task b) {
-    final statusComparison =
-        _statusPriority(a.status).compareTo(_statusPriority(b.status));
-    if (statusComparison != 0) {
-      return statusComparison;
-    }
-
-    final startA = _tryParseHour(a.startTime);
-    final startB = _tryParseHour(b.startTime);
-    return startA.compareTo(startB);
-  }
-
-  int _tryParseHour(String value) {
-    final match = RegExp(r'^(\d{1,2})').firstMatch(value.trim());
-    if (match == null) {
-      return 99;
-    }
-    return int.tryParse(match.group(1) ?? '') ?? 99;
-  }
-
-  List<Task> get _fallbackTasks => [
-        Task(
-          id: 'local-001',
-          reference: 'REF-001',
-          name: 'Tache 1',
-          description: 'Diagnostic technique',
-          partnerName: 'Partenaire Alpha',
-          startTime: '08h',
-          endTime: '09h',
-          status: TaskStatus.todo,
-        ),
-        Task(
-          id: 'local-002',
-          reference: 'REF-002',
-          name: 'Tache 2',
-          description: 'Verification cablage GPS',
-          partnerName: 'Partenaire Beta',
-          startTime: '09h',
-          endTime: '10h',
-          status: TaskStatus.todo,
-        ),
-        Task(
-          id: 'local-003',
-          reference: 'REF-003',
-          name: 'Tache 3',
-          description: 'Mise a jour firmware',
-          partnerName: 'Partenaire Gamma',
-          startTime: '10h',
-          endTime: '11h',
-          status: TaskStatus.todo,
-        ),
-        Task(
-          id: 'local-004',
-          reference: 'REF-004',
-          name: 'Tache 4',
-          description: 'Configuration dispositif',
-          partnerName: 'Partenaire Delta',
-          startTime: '11h',
-          endTime: '12h',
-          status: TaskStatus.inProgress,
-        ),
-        Task(
-          id: 'local-005',
-          reference: 'REF-005',
-          name: 'Tache 5',
-          description: 'Test connectivite reseau',
-          partnerName: 'Partenaire Epsilon',
-          startTime: '13h',
-          endTime: '14h',
-          status: TaskStatus.completed,
-        ),
-        Task(
-          id: 'local-006',
-          reference: 'REF-006',
-          name: 'Tache 6',
-          description: 'Validation finale',
-          partnerName: 'Partenaire Zeta',
-          startTime: '15h',
-          endTime: '16h',
-          status: TaskStatus.completed,
-        ),
-      ];
 
   Color _getStatusColor(TaskStatus status) {
     switch (status) {
-      case TaskStatus.todo:
-        return const Color(0xFFF7A6B0);
-      case TaskStatus.inProgress:
-        return const Color(0xFFF6DD72);
-      case TaskStatus.completed:
-        return const Color(0xFF95E08C);
+      case TaskStatus.todo: return AppTheme.c3;
+      case TaskStatus.inProgress: return AppTheme.c2;
+      case TaskStatus.completed: return const Color(0xFF4CAF50);
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final isDark = false;
     return Scaffold(
-      body: Container(
-        decoration: BoxDecoration(
-          color: _isDarkMode ? Colors.black : null,
-          image: _isDarkMode
-              ? null
-              : const DecorationImage(
-                  image: AssetImage('assets/fond tunav.jpg'),
-                  fit: BoxFit.cover,
-                ),
-        ),
-        child: SafeArea(
+      body: SafeArea(
           child: Row(
             children: [
+              // ── Sidebar ──
               Container(
                 width: 62,
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.1),
-                  border: Border(
-                    right: BorderSide(
-                        color: Colors.white.withOpacity(0.2), width: 1),
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.2),
-                      blurRadius: 10,
-                      offset: const Offset(2, 0),
-                    ),
-                  ],
-                ),
+                color: AppTheme.sidebar(isDark),
                 child: Column(
                   children: [
-                    const SizedBox(height: 20),
-                    _buildSidebarItem('TO DO', 'TODO', Colors.white),
-                    const SizedBox(height: 20),
-                    _buildSidebarItem(
-                        'ASSETS', 'ASSETS', const Color(0xFF5DADE2)),
-                    const SizedBox(height: 20),
-                    _buildSidebarItem('DIAGNOSTIQUE', 'DIAGNOSTIQUE',
-                        const Color(0xFF48C9B0)),
-                    const Spacer(),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          _buildSidebarItem('TO DO', 'TODO', AppTheme.skyLight, isDark),
+                          _buildDivider(isDark),
+                          _buildSidebarItem('MON BORD', 'DASHBOARD', const Color(0xFF26C6A6), isDark),
+                          _buildDivider(isDark),
+                          _buildSidebarItem('ASSETS', 'ASSETS', AppTheme.accentAlt, isDark),
+                          _buildDivider(isDark),
+                          _buildSidebarItem('DIAGNOSTIQUE', 'DIAGNOSTIQUE', AppTheme.accent, isDark),
+                        ],
+                      ),
+                    ),
                     Padding(
                       padding: const EdgeInsets.only(bottom: 20),
                       child: IconButton(
-                        icon: const Icon(Icons.logout,
-                            color: Colors.white, size: 28),
+                        icon: Icon(Icons.logout, color: AppTheme.c2, size: 24),
                         onPressed: () {
                           showDialog(
                             context: context,
                             builder: (context) => AlertDialog(
-                              backgroundColor: const Color(0xFF5B7C99),
-                              shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(16)),
-                              title: const Text(
-                                'Deconnexion',
-                                style: TextStyle(
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.bold),
-                              ),
-                              content: const Text(
-                                'Voulez-vous vraiment vous deconnecter ?',
-                                style: TextStyle(color: Colors.white70),
-                              ),
+                              backgroundColor: AppTheme.card(isDark),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                              title: const Text('Deconnexion',
+                                  style: TextStyle(color: AppTheme.c1, fontWeight: FontWeight.bold)),
+                              content: const Text('Voulez-vous vraiment vous deconnecter ?',
+                                  style: TextStyle(color: AppTheme.c2)),
                               actions: [
                                 TextButton(
                                   onPressed: () => Navigator.pop(context),
-                                  style: TextButton.styleFrom(
-                                      foregroundColor: Colors.white),
+                                  style: TextButton.styleFrom(foregroundColor: Colors.white),
                                   child: const Text('Annuler'),
                                 ),
                                 ElevatedButton(
@@ -242,14 +139,12 @@ class _HomeScreenState extends State<HomeScreen> {
                                     await _authService.logout();
                                     if (!mounted) return;
                                     Navigator.of(context).pushAndRemoveUntil(
-                                      MaterialPageRoute(
-                                          builder: (context) =>
-                                              const LoginScreen()),
+                                      MaterialPageRoute(builder: (_) => const LoginScreen()),
                                       (route) => false,
                                     );
                                   },
                                   style: ElevatedButton.styleFrom(
-                                    backgroundColor: const Color(0xFFDC143C),
+                                    backgroundColor: AppTheme.btnDark,
                                     foregroundColor: Colors.white,
                                   ),
                                   child: const Text('Deconnexion'),
@@ -267,51 +162,29 @@ class _HomeScreenState extends State<HomeScreen> {
                 child: Column(
                   children: [
                     Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 16, vertical: 12),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.1),
-                        border: Border(
-                          bottom: BorderSide(
-                              color: Colors.white.withOpacity(0.2), width: 1),
-                        ),
-                      ),
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                      color: AppTheme.topbar(isDark),
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.end,
                         children: [
                           IconButton(
-                            icon: const Icon(Icons.refresh,
-                                color: Colors.white, size: 28),
+                            icon: Icon(Icons.refresh, color: AppTheme.c1, size: 22),
                             onPressed: _loadTasks,
-                          ),
-                          const SizedBox(width: 8),
-                          Container(
-                            decoration: BoxDecoration(
-                              color: Colors.white.withOpacity(0.2),
-                              borderRadius: BorderRadius.circular(20),
-                              border: Border.all(
-                                  color: Colors.white.withOpacity(0.3)),
-                            ),
-                            child: Switch(
-                              value: _isDarkMode,
-                              onChanged: (v) => setState(() => _isDarkMode = v),
-                              activeColor: Colors.black,
-                              activeTrackColor: Colors.grey.shade800,
-                              inactiveThumbColor: Colors.white,
-                              inactiveTrackColor: Colors.grey.shade400,
-                            ),
+                            tooltip: 'Actualiser',
                           ),
                         ],
                       ),
                     ),
                     Expanded(
                       child: _currentPage == 'TODO'
-                          ? _buildTodoPage()
-                          : _currentPage == 'ASSETS'
-                              ? const AssetsScreen()
-                              : _currentPage == 'DIAGNOSTIQUE'
-                                  ? const DiagnosticScreen()
-                                  : _buildPlaceholderPage(),
+                          ? _buildTodoPage(isDark)
+                          : _currentPage == 'DASHBOARD'
+                              ? const TechnicianDashboardScreen()
+                              : _currentPage == 'ASSETS'
+                                  ? const AssetsScreen()
+                                  : _currentPage == 'DIAGNOSTIQUE'
+                                      ? const DiagnosticScreen()
+                                      : const SizedBox(),
                     ),
                   ],
                 ),
@@ -319,110 +192,114 @@ class _HomeScreenState extends State<HomeScreen> {
             ],
           ),
         ),
-      ),
     );
   }
 
-  Widget _buildSidebarItem(String title, String page, Color color) {
-    final isSelected = _currentPage == page;
-    return GestureDetector(
-      onTap: () => setState(() => _currentPage = page),
-      child: Container(
-        width: 44,
-        padding: const EdgeInsets.symmetric(vertical: 10),
-        decoration: BoxDecoration(
-          color: isSelected
-              ? const Color(0xFFDCE1E8).withOpacity(0.78)
-              : Colors.transparent,
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(
-            color: isSelected
-                ? Colors.white.withOpacity(0.35)
-                : Colors.transparent,
-          ),
-        ),
-        child: RotatedBox(
-          quarterTurns: 3,
-          child: Text(
-            title,
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              color: isSelected ? const Color(0xFF3D4C5A) : color,
-              fontWeight: FontWeight.bold,
-              fontSize: 13,
-              letterSpacing: 1.0,
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildTodoPage() {
-    if (_isLoading) {
-      return const Center(
-          child: CircularProgressIndicator(color: Colors.white));
-    }
-
-    final frameDecoration = _isDarkMode
-        ? BoxDecoration(
-            color: const Color(0xFF141414),
-            borderRadius: BorderRadius.circular(30),
-            border:
-                Border.all(color: Colors.white.withOpacity(0.22), width: 1.3),
-          )
-        : BoxDecoration(
-            gradient: const LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [
-                Color(0xA14A8DB0),
-                Color(0xC329A8B3),
-              ],
-            ),
-            borderRadius: BorderRadius.circular(30),
-            border:
-                Border.all(color: Colors.white.withOpacity(0.42), width: 1.3),
-          );
-
+  Widget _buildDivider(bool isDark) {
     return Container(
-      margin: const EdgeInsets.fromLTRB(14, 14, 14, 10),
-      padding: const EdgeInsets.all(4),
-      decoration: frameDecoration,
-      child: Container(
-        decoration: BoxDecoration(
-          color: _isDarkMode ? const Color(0xFF1E1E1E) : null,
-          borderRadius: BorderRadius.circular(26),
-          border: Border.all(color: Colors.white.withOpacity(0.2), width: 1),
-        ),
-        child: ListView.builder(
-          padding: const EdgeInsets.fromLTRB(12, 14, 12, 12),
-          itemCount: _tasks.length,
-          itemBuilder: (context, index) {
-            final task = _tasks[index];
-            return _TaskCard(
-              task: task,
-              statusColor: _getStatusColor(task.status),
-              isExpanded: _expandedTaskId == task.id,
-              onToggleExpand: () {
-                setState(() {
-                  _expandedTaskId = _expandedTaskId == task.id ? null : task.id;
-                });
-              },
-              onRefresh: _loadTasks,
-            );
-          },
+      height: 1,
+      margin: const EdgeInsets.symmetric(horizontal: 10),
+      color: AppTheme.sidebarDivider(isDark),
+    );
+  }
+
+  Widget _buildSidebarItem(String title, String page, Color color, bool isDark) {
+    final isSelected = _currentPage == page;
+    return Expanded(
+      child: GestureDetector(
+        onTap: () => setState(() => _currentPage = page),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          width: double.infinity,
+          margin: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+          decoration: BoxDecoration(
+            color: isSelected ? AppTheme.sidebarSelected(isDark) : Colors.transparent,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: isSelected
+                  ? (isDark ? Colors.white.withOpacity(0.25) : Colors.black.withOpacity(0.15))
+                  : AppTheme.sidebarDivider(isDark),
+              width: 1.2,
+            ),
+          ),
+          child: Center(
+            child: RotatedBox(
+              quarterTurns: 3,
+              child: Text(
+                title,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: isSelected ? Colors.white : color,
+                  fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
+                  fontSize: 12,
+                  letterSpacing: 1.0,
+                ),
+              ),
+            ),
+          ),
         ),
       ),
     );
   }
 
-  Widget _buildPlaceholderPage() {
-    return Center(
-      child: Text(
-        'Page $_currentPage',
-        style: const TextStyle(color: Colors.white, fontSize: 24),
-      ),
+  Widget _buildTodoPage(bool isDark) {
+    if (_isLoading) {
+      return const Center(child: CircularProgressIndicator(color: Colors.white));
+    }
+    if (_tasks.isEmpty) {
+      return Column(
+        children: [
+          const AiAlertsWidget(),
+          Expanded(
+            child: Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.task_alt, size: 56, color: Colors.white24),
+                  const SizedBox(height: 12),
+                  Text('Aucune tâche disponible', style: TextStyle(color: AppTheme.c2.withOpacity(0.5))),
+                  const SizedBox(height: 16),
+                  ElevatedButton.icon(
+                    onPressed: _loadTasks,
+                    icon: const Icon(Icons.refresh),
+                    label: const Text('Actualiser'),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      );
+    }
+    return Column(
+      children: [
+        const AiAlertsWidget(),
+        Expanded(
+          child: Container(
+            margin: const EdgeInsets.fromLTRB(12, 8, 12, 8),
+            decoration: AppTheme.cardBlue(radius: 24),
+            child: ListView.builder(
+              padding: const EdgeInsets.fromLTRB(12, 14, 12, 12),
+              itemCount: _tasks.length,
+              itemBuilder: (context, index) {
+                final task = _tasks[index];
+                return _TaskCard(
+                  task: task,
+                  statusColor: _getStatusColor(task.status),
+                  isExpanded: _expandedTaskId == task.id,
+                  onToggleExpand: () {
+                    setState(() {
+                      _expandedTaskId = _expandedTaskId == task.id ? null : task.id;
+                    });
+                  },
+                  onRefresh: _loadTasks,
+                  onMarkDone: () => _markTaskDoneLocally(task.id),
+                );
+              },
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
@@ -433,6 +310,7 @@ class _TaskCard extends StatefulWidget {
   final bool isExpanded;
   final VoidCallback onToggleExpand;
   final VoidCallback onRefresh;
+  final VoidCallback onMarkDone;
 
   const _TaskCard({
     required this.task,
@@ -440,6 +318,7 @@ class _TaskCard extends StatefulWidget {
     required this.isExpanded,
     required this.onToggleExpand,
     required this.onRefresh,
+    required this.onMarkDone,
   });
 
   @override
@@ -453,24 +332,21 @@ class _TaskCardState extends State<_TaskCard> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFF5B7C99),
+        backgroundColor: AppTheme.card(false),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: const Text('Confirmer',
-            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-        content: const Text('Marquer cette tache comme terminee ?',
-            style: TextStyle(color: Colors.white70)),
+            style: TextStyle(color: AppTheme.c1, fontWeight: FontWeight.bold)),
+        content: const Text('Marquer cette tâche comme terminée ?',
+            style: TextStyle(color: AppTheme.c2)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            style: TextButton.styleFrom(foregroundColor: Colors.white),
+            style: TextButton.styleFrom(foregroundColor: AppTheme.c2.withOpacity(0.7)),
             child: const Text('Annuler'),
           ),
           ElevatedButton(
             onPressed: () => Navigator.pop(context, true),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF90EE90),
-              foregroundColor: Colors.black,
-            ),
+            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.btnDark),
             child: const Text('Confirmer'),
           ),
         ],
@@ -478,22 +354,18 @@ class _TaskCardState extends State<_TaskCard> {
     );
 
     if (confirmed == true) {
+      // Mise à jour locale immédiate — déplace en bas instantanément
+      widget.onMarkDone();
       try {
-        await _taskService.updateTaskStatus(
-            widget.task.id, TaskStatus.completed);
+        await _taskService.updateStage(widget.task.id, 'termine');
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-              content: Text('Tache terminee'), backgroundColor: Colors.green),
+          const SnackBar(content: Text('Tâche terminée ✓'), backgroundColor: Color(0xFF26C6A6)),
         );
-        widget.onRefresh();
       } catch (_) {
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Impossible de terminer cette tache pour le moment'),
-            backgroundColor: Colors.redAccent,
-          ),
+          const SnackBar(content: Text('Erreur mise à jour'), backgroundColor: Colors.redAccent),
         );
       }
     }
@@ -501,171 +373,151 @@ class _TaskCardState extends State<_TaskCard> {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            Color(0xC473B2CC),
-            Color(0xB560AEC8),
-          ],
-        ),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: Colors.white.withOpacity(0.34), width: 1),
-      ),
-      child: Column(
-        children: [
-          GestureDetector(
-            onTap: widget.onToggleExpand,
-            child: Container(
-              padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          widget.task.name.toUpperCase(),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                            letterSpacing: 0.4,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          '${widget.task.startTime} -> ${widget.task.endTime}',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            color: Colors.white70,
-                            fontSize: 13,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ],
+    final isDark = false;
+    final statusIcon = widget.task.status == TaskStatus.completed
+        ? Icons.check_circle_rounded
+        : widget.task.status == TaskStatus.inProgress
+            ? Icons.timelapse_rounded
+            : Icons.fiber_new_rounded;
+
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 300),
+      margin: const EdgeInsets.only(bottom: 10),
+      decoration: AppTheme.cardBlue(radius: 16),
+      child: Opacity(
+        opacity: widget.task.status == TaskStatus.completed ? 0.65 : 1.0,
+        child: Column(
+          children: [
+            GestureDetector(
+              onTap: widget.onToggleExpand,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 36, height: 36,
+                      decoration: BoxDecoration(
+                        color: widget.statusColor.withOpacity(0.18),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Icon(statusIcon, color: widget.statusColor, size: 20),
                     ),
-                  ),
-                  Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                    decoration: BoxDecoration(
-                      color: widget.statusColor,
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Text(
-                      widget.task.status.label,
-                      style: const TextStyle(
-                        color: Colors.black,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 12,
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            widget.task.name,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(color: AppTheme.c1, fontSize: 14, fontWeight: FontWeight.w700),
+                          ),
+                          const SizedBox(height: 3),
+                          Text(
+                            widget.task.partnerName.isNotEmpty ? widget.task.partnerName : widget.task.startTime,
+                            style: TextStyle(color: AppTheme.c2.withOpacity(0.5), fontSize: 11),
+                            maxLines: 1, overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
                       ),
                     ),
-                  ),
-                  const SizedBox(width: 8),
-                  Icon(
-                    widget.isExpanded
-                        ? Icons.keyboard_arrow_up
-                        : Icons.keyboard_arrow_down,
-                    color: Colors.white.withOpacity(0.9),
-                    size: 20,
-                  ),
-                ],
-              ),
-            ),
-          ),
-          if (widget.isExpanded)
-            Container(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 14),
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.12),
-                borderRadius: const BorderRadius.only(
-                  bottomLeft: Radius.circular(16),
-                  bottomRight: Radius.circular(16),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: widget.statusColor.withOpacity(0.15),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: widget.statusColor.withOpacity(0.4)),
+                      ),
+                      child: Text(widget.task.status.label,
+                          style: TextStyle(color: widget.statusColor, fontWeight: FontWeight.bold, fontSize: 10)),
+                    ),
+                    const SizedBox(width: 6),
+                    Icon(widget.isExpanded ? Icons.expand_less : Icons.expand_more,
+                        color: AppTheme.c2.withOpacity(0.5), size: 20),
+                  ],
                 ),
               ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  _buildInfoRow('Reference', widget.task.reference),
-                  const SizedBox(height: 8),
-                  _buildInfoRow('Description', widget.task.description),
-                  const SizedBox(height: 8),
-                  _buildInfoRow('Partenaire', widget.task.partnerName),
-                  const SizedBox(height: 14),
-                  ElevatedButton.icon(
-                    onPressed: () async {
-                      await Navigator.of(context).push(
-                        MaterialPageRoute(
-                            builder: (_) =>
-                                TaskDetailScreen(task: widget.task)),
-                      );
-                      if (!mounted) return;
-                      widget.onRefresh();
-                    },
-                    icon: const Icon(Icons.file_copy_outlined, size: 16),
-                    label:
-                        const Text('Fichiers', style: TextStyle(fontSize: 15)),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF3C9EE6),
-                      foregroundColor: Colors.white,
-                      minimumSize: const Size.fromHeight(36),
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(9)),
-                    ),
+            ),
+            if (widget.isExpanded)
+              Container(
+                padding: const EdgeInsets.fromLTRB(14, 10, 14, 14),
+                decoration: BoxDecoration(
+                  color: Colors.black.withOpacity(0.15),
+                  borderRadius: const BorderRadius.only(
+                    bottomLeft: Radius.circular(16), bottomRight: Radius.circular(16),
                   ),
-                  if (widget.task.status != TaskStatus.completed) ...[
-                    const SizedBox(height: 8),
-                    ElevatedButton.icon(
-                      onPressed: _markAsCompleted,
-                      icon: const Icon(Icons.check_circle, size: 16),
-                      label: const Text('Terminer',
-                          style: TextStyle(fontSize: 15)),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF7DDB82),
-                        foregroundColor: Colors.black,
-                        minimumSize: const Size.fromHeight(36),
-                        shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(9)),
-                      ),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    _infoRow(Icons.tag, 'Réf', widget.task.reference),
+                    const SizedBox(height: 5),
+                    _infoRow(Icons.description_outlined, 'Description', widget.task.description),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: () async {
+                              await Navigator.of(context).push(
+                                MaterialPageRoute(builder: (_) => TaskDetailScreen(task: widget.task)),
+                              );
+                              if (!mounted) return;
+                              widget.onRefresh();
+                            },
+                            icon: const Icon(Icons.attach_file, size: 15),
+                            label: const Text('Détails', style: TextStyle(fontSize: 13)),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: AppTheme.skyLight,
+                    side: const BorderSide(color: AppTheme.skyTop),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                              padding: const EdgeInsets.symmetric(vertical: 9),
+                            ),
+                          ),
+                        ),
+                        if (widget.task.status != TaskStatus.completed) ...[
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: ElevatedButton.icon(
+                              onPressed: _markAsCompleted,
+                              icon: const Icon(Icons.check_rounded, size: 15),
+                              label: const Text('Terminer', style: TextStyle(fontSize: 13)),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: AppTheme.btnTerminer,
+                                foregroundColor: Colors.white,
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                padding: const EdgeInsets.symmetric(vertical: 9),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ],
                     ),
                   ],
-                ],
+                ),
               ),
-            ),
-        ],
+          ],
+        ),
       ),
     );
   }
 
-  Widget _buildInfoRow(String label, String value) {
-    return Column(
+  Widget _infoRow(IconData icon, String label, String value) {
+    return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          label,
-          style: const TextStyle(
-            color: Color(0xDDEDF5F7),
-            fontSize: 12,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        const SizedBox(height: 2),
-        Text(
-          value,
-          style: const TextStyle(
-            color: Colors.white,
-            fontSize: 16,
-            fontWeight: FontWeight.bold,
-          ),
+        Icon(icon, size: 12, color: AppTheme.c2.withOpacity(0.5)),
+        const SizedBox(width: 5),
+        Text('$label: ', style: TextStyle(color: AppTheme.c2.withOpacity(0.5), fontSize: 11)),
+        Expanded(
+          child: Text(value, style: const TextStyle(color: Colors.white60, fontSize: 11),
+              overflow: TextOverflow.ellipsis, maxLines: 2),
         ),
       ],
     );
   }
 }
+
+
+

@@ -1,0 +1,10 @@
+__pycache__/
+*.pyc
+*.pyo
+.env
+*.log
+*.bat
+*.ps1
+*.vbs
+nssm*
+.git/

@@ -2,12 +2,8 @@ from fastapi import APIRouter, UploadFile, File, HTTPException, Request
 from typing import List
 import os
 from uuid import uuid4
-import httpx
 
 router = APIRouter()
-
-# External API URL for assets
-EXTERNAL_FILES_API = "http://41.226.24.13:5000/api/files"
 
 UPLOAD_FOLDER = os.path.join(os.getcwd(), 'static', 'uploads')
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
@@ -48,7 +44,6 @@ async def upload_files(files: List[UploadFile] = File(...), request: Request = N
     return {"files": saved_urls}
 
 
-
 @router.get('/task/{task_id}/media')
 async def list_task_media(task_id: str):
     folder = os.path.join(UPLOAD_FOLDER, 'tasks', task_id)
@@ -76,14 +71,32 @@ async def delete_task_media(task_id: str, filename: str):
 
 
 @router.get("/")
+@router.get("")
 async def get_files():
-    """Fetch files/assets from external API"""
-    try:
-        async with httpx.AsyncClient(timeout=10.0) as client:
-            response = await client.get(EXTERNAL_FILES_API)
-            if response.status_code == 200:
-                return response.json()
-            else:
-                return {"files": [], "error": f"External API returned {response.status_code}"}
-    except Exception as e:
-        return {"files": [], "error": str(e)}
+    """Serve local modules PDFs"""
+    modules_dir = os.path.join(os.getcwd(), 'static', 'modules')
+    if not os.path.exists(modules_dir):
+        return {"files": []}
+    files = []
+    for name in os.listdir(modules_dir):
+        if name.lower().endswith('.pdf'):
+            files.append({
+                'name': name,
+                'filename': name,
+                'url': f'/modules/{name}',
+                'type': 'pdf'
+            })
+    return {"files": files}
+
+
+@router.get("/download/{filename}")
+async def download_file(filename: str):
+    """Download a PDF from static/modules/"""
+    if '/' in filename or '..' in filename or '\\' in filename:
+        raise HTTPException(status_code=400, detail="Invalid filename")
+    path = os.path.join(os.getcwd(), 'static', 'modules', filename)
+    if not os.path.exists(path):
+        raise HTTPException(status_code=404, detail="File not found")
+    from fastapi.responses import FileResponse
+    return FileResponse(path, media_type='application/pdf', filename=filename)
+

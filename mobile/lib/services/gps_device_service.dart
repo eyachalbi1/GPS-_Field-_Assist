@@ -1,9 +1,10 @@
-
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
 import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
+import '../utils/config.dart';
 
 class GpsDevice {
   final String serialNumber;
@@ -55,13 +56,7 @@ class GpsApiConnectionInfo {
 }
 
 class GpsDeviceService {
-  static const String _defaultApiUrl =
-      'http://41.226.24.13:5000/api/gps-devices';
-  static String get _apiUrl =>
-      (String.fromEnvironment('GPS_DEVICES_API_URL', defaultValue: ''))
-          .isNotEmpty
-          ? String.fromEnvironment('GPS_DEVICES_API_URL')
-          : '$_defaultApiUrl';
+  static String get _apiUrl => '${Config.apiBaseUrl}/api/gps-devices';
 
   static String? _lastEtag;
   static List<GpsDevice> _lastDevices = [];
@@ -72,29 +67,59 @@ class GpsDeviceService {
   /// Public stream to listen for updates (create/update/delete)
   static Stream<List<GpsDevice>> get devicesStream => _devicesController.stream;
 
-  /// Fetch devices from the API. Returns cached devices on error.
-  static Future<List<GpsDevice>> fetchDevices({Duration timeout = const Duration(seconds: 10)}) async {
+  static const _cacheKey = 'cached_gps_devices';
+
+  static Future<void> _persistDevices(List<GpsDevice> devices) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(
+        _cacheKey, jsonEncode(devices.map((d) => d.toMap()).toList()));
+  }
+
+  static Future<List<GpsDevice>> _loadPersistedDevices() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final raw = prefs.getString(_cacheKey);
+      if (raw != null) {
+        final list = jsonDecode(raw) as List;
+        return list
+            .map((e) => GpsDevice.fromJson(Map<String, dynamic>.from(e)))
+            .toList();
+      }
+    } catch (_) {}
+    return [];
+  }
+
+  /// Fetch devices from the API. Returns persisted devices on error.
+  static Future<List<GpsDevice>> fetchDevices(
+      {Duration timeout = const Duration(seconds: 10)}) async {
+    // Load persisted on first call if memory cache empty
+    if (_lastDevices.isEmpty) {
+      _lastDevices = await _loadPersistedDevices();
+      if (_lastDevices.isNotEmpty) _devicesController.add(_lastDevices);
+    }
+
     final uri = Uri.parse(_apiUrl);
     try {
       final headers = <String, String>{'Accept': 'application/json'};
       if (_lastEtag != null) headers['If-None-Match'] = _lastEtag!;
 
-      final resp = await http.get(uri).timeout(timeout);
+      final resp = await http.get(uri, headers: headers).timeout(timeout);
 
       if (resp.statusCode == 200) {
         final body = resp.body.isNotEmpty ? json.decode(resp.body) : [];
         final List<dynamic> list = body is List ? body : [];
-        final devices = list.map((e) => GpsDevice.fromJson(e as Map<String, dynamic>)).toList();
+        final devices = list
+            .map((e) => GpsDevice.fromJson(e as Map<String, dynamic>))
+            .toList();
         _lastDevices = devices;
+        await _persistDevices(devices);
         final etag = resp.headers['etag'];
         if (etag != null && etag.isNotEmpty) _lastEtag = etag;
         _devicesController.add(_lastDevices);
         return _lastDevices;
       } else if (resp.statusCode == 304) {
-        // Not modified
         return _lastDevices;
       } else {
-        // Non-OK response -> return cached
         return _lastDevices;
       }
     } on SocketException {
@@ -107,7 +132,8 @@ class GpsDeviceService {
   }
 
   /// Start automatic periodic refresh; broadcasts changes on the stream.
-  static void startAutoRefresh({Duration interval = const Duration(seconds: 15)}) {
+  static void startAutoRefresh(
+      {Duration interval = const Duration(seconds: 15)}) {
     _autoRefreshTimer?.cancel();
     _autoRefreshTimer = Timer.periodic(interval, (_) async {
       final devices = await fetchDevices();
@@ -123,4 +149,4 @@ class GpsDeviceService {
 
   /// Get last cached devices immediately
   static List<GpsDevice> getCachedDevices() => List.unmodifiable(_lastDevices);
- }
+}

@@ -16,8 +16,10 @@ dependencies:
   telephony:
     path: third_party/telephony
   syncfusion_flutter_pdfviewer: ^32.2.7
-  path_provider: ^2.1.2
   flutter_launcher_icons: ^0.14.4
+  path_provider: ^2.1.5
+  webview_flutter: ^4.10.0
+  html: ^0.15.4
 
 dev_dependencies:
   flutter_test:
@@ -39,10 +41,11 @@ flutter:
     - assets/logo_ooredoo.png
     - assets/logo_orange.png
     - assets/logo_telecom.png
-    - assets/modules_gps/Camtrack.png
-    - assets/modules_gps/ET8_KIT.png
-    - assets/modules_gps/ET6_KIT.png
-    - assets/modules_gps/ETX_KIT.png
-    - assets/modules_gps/ETBLE_KIT.png
-    - assets/modules_gps/ETCAN_KIT.png
-    - pdfs_modules/
+    - assets/MT02S-200.jpg
+    - assets/ICON_CHATBOT.png
+    - assets/ET7.jpeg
+    - assets/FM4200_v1.92.jpeg
+    - assets/FM5300_ v3.4.jpeg
+    - assets/FMA120_v1.17.jpeg
+    - assets/GT06N.jpeg
+    - assets/GT06N_autre.jpeg

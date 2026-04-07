@@ -1,0 +1,46 @@
+version: '3.9'
+
+services:
+
+  db:
+    image: postgres:15-alpine
+    container_name: gps_field_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: tunav_gps_tracking_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgre
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: gps_field_backend
+    restart: unless-stopped
+    environment:
+      DB_HOST: db
+      DB_NAME: tunav_gps_tracking_db
+      DB_USER: postgres
+      DB_PASSWORD: postgre
+      DB_PORT: 5432
+      SECRET_KEY: tunav_gps_secret_key_2024
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend/static/uploads:/app/static/uploads
+      - ./backend/static/modules:/app/static/modules
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  postgres_data:

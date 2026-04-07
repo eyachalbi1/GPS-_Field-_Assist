@@ -1,0 +1,969 @@
+\documentclass[12pt,a4paper]{report}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[english,french]{babel}
+\usepackage{graphicx}
+\usepackage{xcolor}
+\usepackage{geometry}
+\usepackage{hyperref}
+\usepackage{array}
+\usepackage{tabularx}
+\usepackage{float}
+\usepackage{lipsum}
+
+
+\geometry{margin=2.5cm}
+\definecolor{tunavblue}{RGB}{41,128,185}
+\definecolor{tunavdark}{RGB}{52,73,94}
+
+\begin{document}
+
+\begin{titlepage}
+\newcommand{\HRule}{\rule{\linewidth}{0.5mm}}
+\begin{center}
+\begin{minipage}[c]{0.2\textwidth}
+\centering
+\includegraphics[height=1.6cm]{logo_istic.jpg}
+\end{minipage}
+\hfill
+\begin{minipage}[c]{0.55\textwidth}
+\centering
+\footnotesize
+\textbf{République Tunisienne}  \\
+\textbf{Ministère de l'Enseignement Supérieur et de la Recherche Scientifique}\\
+\medskip 
+\textbf{Université de Carthage} \\
+\medskip
+\textbf{Institut Supérieur des Technologies de l'Information et de la Communication}\\
+\end{minipage}
+\vspace{1cm}
+\hfill
+\begin{minipage}[c]{0.2\textwidth}
+\centering
+\includegraphics[height=1.8cm]{logo_ucar.jpeg}    
+\end{minipage}
+
+\textsc{\large Rapport de Projet de Fin d’Études}\\[0.5cm]
+\textbf{Présenté en vue de l’obtention de la} \\
+\textsc{\large Licence Appliquée en  Systèmes Embarqués et  Internet des Objets} \\[0.5cm]
+\textbf{Mention : Systèmes Embarqués et Internet des objets  } \\[0.2cm]
+\textbf{Spécialité : Ingénierie des systèmes Informatiques } \\[1.2cm]
+
+
+\HRule \\[0.4cm]
+\textcolor{tunavblue}{\LARGE  \textbf{GPS Field Assist}}\\[0.3cm]
+\textcolor{tunavdark}{\large Application Mobile Intelligente pour la Gestion d'Interventions GPS}\\[0.4cm]
+\HRule \\[0.4cm]
+\textbf{Élaboré par} \\[0.2cm]
+\textsc{\large Ons Nairi }\\[0.2cm] 
+
+\textsc{\large Eya Chalbi }\\[0.3cm]
+\textbf{Réalisé au sein de} \\[0.1cm]
+\textbf{Tunav IT Group} \\[0.5cm]
+
+\includegraphics[height=3.1cm]{logo_Tunav.jpeg} \\[0.5cm]
+Encadrant Professionnel : M.Firas Salhi \\[0.5cm]
+Encadrante Académique :  Mme. Imen Messaoudi\\[0.5cm]
+Période de stage : 26/01/2026 - 11/05/2026 \\ [0.5cm]
+{\large Année académique : 2025 - 2026}\\[0.5cm]
+\end{center}
+\end{titlepage}
+\begin{titlepage}
+\newcommand{\HRule}{\rule{\linewidth}{0.5mm}}
+\begin{center}
+\begin{minipage}[c]{0.2\textwidth}
+\centering
+\includegraphics[height=1.8cm]{logo_istic.jpg}
+\end{minipage}
+\hfill
+\begin{minipage}[c]{0.55\textwidth}
+\centering
+\footnotesize
+\textbf{République Tunisienne}  \\
+\textbf{Ministère de l'Enseignement Supérieur et de la Recherche Scientifique}\\
+\medskip 
+\textbf{Université de Carthage} \\
+\medskip
+\textbf{Institut Supérieur des Technologies de l'Information et de la Communication}\\
+\end{minipage}
+\hfill
+\begin{minipage}[c]{0.2\textwidth}
+\centering
+\includegraphics[height=1.6cm]{logo_ucar.jpeg}    
+\end{minipage}
+\vspace{0.8cm}
+\textsc{\large Rapport de Projet de Fin d’Études}\\[0.3cm]
+\textbf{Présenté en vue de l’obtention de la} \\
+\textsc{\large Licence Appliquée en  Systèmes Embarqués et  Internet des Objets} \\[0.3cm]
+\textbf{Mention : Systèmes Embarqués et Internet des objets  } \\[0.1cm]
+\textbf{Spécialité : Ingénierie des systèmes Informatiques } \\[0.5cm]
+
+
+\HRule \\[0.4cm]
+\textcolor{tunavblue}{\LARGE  \textbf{GPS Field Assist}}\\[0.2cm]
+\textcolor{tunavdark}{\large Application Mobile Intelligente pour la Gestion d'Interventions GPS}\\[0.3cm]
+\HRule \\[0.4cm]
+\textbf{Élaboré par} \\[0.2cm]
+\textsc{\large Ons Nairi }\\[0.1cm] 
+\textsc{\large Eya Chalbi }\\[0.1cm]
+\textbf{#Réalisé au sein de} \\[0.1cm]
+\textbf{Tunav IT Group} \\[0.1cm]
+\includegraphics[height= 3.1cm]{logo_Tunav.jpeg} \\[0.3cm]
+\textbf{Soutenu publiquement le }                  
+                      
+                             \\ [1cm]   
+    devant le jury composé de: \\[1cm]   
+\begin{tabular}{ll}
+    Président : &                                       \\[0.3cm]
+    Rapporteur : &                                       \\[0.5cm]
+    Encadrant professionnel : & M.Firas Salhi    \hspace*{\fill}             Tunav IT GROUP\\
+    Encadrante académique : & Mme Imen Messaoudi  \hspace*{\fill}  ISTIC \\
+\end{tabular} \\ [0.6cm]
+\textbf{Année Universitaire : 2025-2026}
+ \end{center}
+ \end{titlepage}
+\begin{titlepage}
+\newcommand{\HRule}{\rule{\linewidth}{0.5mm}}
+\begin{center}
+
+\begin{minipage}[c]{0.2\textwidth}
+\centering
+\includegraphics[height=1.4cm]{logo_istic.jpg}
+\end{minipage}
+\hfill
+\begin{minipage}[c]{0.55\textwidth}
+\centering
+\footnotesize
+\textbf{République Tunisienne}  \\
+\textbf{Ministère de l'Enseignement Supérieur et de la Recherche Scientifique}\\
+\medskip 
+\textbf{Université de Carthage} \\
+\medskip
+\textbf{Institut Supérieur des Technologies de l'Information et de la Recherche Scientifique}\\
+\end{minipage}
+\hfill
+\begin{minipage}[c]{0.2\textwidth}
+\centering
+\includegraphics[height=1.4cm]{logo_ucar.jpeg}    
+\end{minipage}
+
+\vspace{0.3cm}
+
+\textsc{\large Rapport de Projet de Fin d’Études}\\[0.1cm]
+
+\textbf{Présenté en vue de l'obtention de la} \\
+\textsc{\large Licence Appliquée en Systèmes Embarqués et Internet des Objets} \\[0.2cm]
+\textbf{Mention : Systèmes Embarqués et Internet des objets} \\
+\textbf{Spécialité : Ingénierie des systèmes Informatiques} \\[0.5cm]
+
+\HRule \\[0.3cm]
+\textcolor{tunavblue}{\LARGE \textbf{GPS Field Assist}}\\[0.2cm]
+\textcolor{tunavdark}{\large Application Mobile Intelligente pour la Gestion d'Interventions GPS}\\[0.2cm]
+\HRule \\[0.3cm]
+
+\textbf{Élaboré par} \\[0.1cm]
+\textsc{\large Ons Nairi} \\ 
+\textsc{\large Eya Chalbi} \\[0.2cm]
+
+\textbf{Réalisé au sein de} \\[0.1cm]
+\large\textbf{Tunav IT Group} \\[0.2cm]
+
+\includegraphics[height=2.2cm]{logo_Tunav.jpeg} \\[0.3cm]
+
+\textbf{\large Autorisation de dépôt du rapport de Projet de Fin d'Études :}\\[0.3cm]   
+
+\begin{tabular}{p{5cm}p{4cm}p{5cm}}
+\textbf{Encadrant professionnel :} & & \textbf{Encadrante académique :} \\
+M. Firas Salhi & & Mme. Imen Messaoudi \\[0.5cm]
+Le                         & & Le                 \\[0.5cm]
+Signature : & & Signature : \\[0.5cm]
+
+\end{tabular}
+
+\vspace{0.5cm}
+
+\textbf{Année Universitaire : 2025-2026}
+
+\end{center}
+\end{titlepage}
+
+\pagenumbering{roman}
+\chapter*{Dédicaces}
+\addcontentsline{toc}{chapter}{Dédicaces Ons}
+
+
+\begin{center}
+  \large 
+         Je dédie ce projet de fin d'études \\
+                  \vspace{0.5cm}
+               À mes chers parents,\\
+        Pour leur soutien et leur  sacrifices tous au long de mes études.\\
+        Leurs encouragements m'ont permis de surmonter les monts de doute. \\[1cm]
+         À mes enseignants, \\
+        Pour la qualité de laur formation et leurs  précieux conseils.\\
+        Leur dévouement m'a permis d'acquérir les compétences nécessaires pour ce travail.\\[1cm]
+        \textbf{ À l'équipe de Tunav IT Group,}\\
+        Pour leur accueil chaleureux et leur disponibilité tout au long de mon stage.\\
+        Leur expérience et leurs conseils m'ont été très précieux.\\[1cm]
+        
+             À mes amis et mes collègues,\\
+            Pour leur présence et leur soutien .\\
+            Pour les moments partagés et les apprentissages mutuels.\\[1cm]
+            
+            
+        \textbf{ À Eya , ma binôme}\\
+        Pour son sérieux et sa collaboration tout au long de ce projet.\\
+        Sa persévérance, sa créativité et son sens de l'organisation \\ 
+        ont grandement contribué à la réussite de ce travail. \\
+        Ce fut un plaisir de travailler avec elle .\\
+        
+        
+        
+        
+         
+\end{center}
+\vspace{2cm}
+\hfill\textbf{Ons Nairi}
+\vfill
+\chapter*{Dédicaces} 
+\addcontentsline{toc}{chapter}{ Dédicaces Eya }   
+ 
+\begin{center} 
+  \large   
+          Je dédie ce projet de fin d'études      \\ 
+                   \vspace{0.5cm}
+          \textbf{À mes chers parents,} \\ 
+        Pour leur  amour, leur soutien et leurs sacrifices tout au long de mes études . \\ 
+        Grâce à vous , j'ai pu avancer avec confiance et détermination. \\
+           Ce travail est le vôtre autant que le mien.\\[1cm]
+          \textbf{À mes chers  frères et sœurs,} \\ 
+        Pour leur présence,  leur bonne humeur et leur soutien au quotidien. \\
+        Vous êtes ma source de joie et d'énergie. \\ [1cm] 
+        \textbf{À l'équipe de Tunav IT Group,}  \\
+        Pour leur accueil chaleureux et leur disponibilité tout au long de mon stage.\\
+        Leurs conseils et leur expérience m'ont été très précieux. \\[1cm]
+        \textbf{À mes amis proches,} \\
+        Pour leur présence sincère, leurs encouragements \\
+        et tous les moments partagés qui ont rendu ce chemin plus léger .\\[1cm]
+        \textbf{À  Ons, ma binôme, }\\
+Pour son engagement  constant, son professionnalisme, sa bienveillance et sa collaboration précieuse tout au long de ce projet. \\
+ J'ai beaucoup apprécié travailler avec elle. \\
+\end{center}
+\vspace{2cm}
+\hfill\textbf{ Chalbi Eya  }
+\vfill   
+
+\chapter*{Remerciement}
+\addcontentsline{toc}{chapter}{Remerciements}
+
+\begin{center}
+\large
+Nous tenons à exprimer notre profonde gratitude à toutes les personnes qui ont contribué à la réalisation de ce travail.\\ [1.5cm]
+\end{center}
+\noindent Nos sincères remerciements vont tout d'abord à \textbf{M.Firas Salhi},notre encadrant professionnel chez Tunav IT Group, pour son encadrement , sa disponibilité et ses précieux conseils tout au long de cette expérience. Son aide et sa bienveillance ont grandement contribué à la réussite de ce projet. \\[0.5cm]  
+\noindent Nous remercions également \textbf{Mme Imen Messaoudi}, notre encadrante universitaire à l'ISTIC, pour ses conseils instructifs,son suivi attentif et la confiance qu'elle nous a accordée. \\[0.5cm]
+\noindent Nous souhaitons  remercier chaleureusement tous les membres de  \textbf{l'équipe de Tunav IT Group} pour leur accueil , leur bonne humeur et leur collaboration. Leurs conseils et leur expérience nous ont beaucoup apporté.\\[0.5cm]
+\noindent Nous tenons à remercier  l'ensemble de \textbf{nos enseignants} de l'ISTIC ainsi que le personnel administratif  pour la qualité de leur formation et leur dévouement tout au long de notre parcours universitaire.\\[0.5cm]
+\noindent Nous remercions également \textbf{nos camarades}pour les moments de partage et l'entraide précieuse durant ces trois années d'étude.\\[0.5cm]
+\noindent Enfin,nous remercions du fond du coeur \textbf{nos familles} et \textbf{nos amis}pour leur soutien indéfectible,leur patience et leurs encouragements tout au long de ce parcours.\\[1cm]
+
+\hfill\textbf{Eya  Chalbi}\\[1cm] 
+\vspace{2cm}
+\hfill\textbf{ Ons Nairi}
+
+
+\tableofcontents
+
+\listoffigures
+
+\listoftables
+
+\chapter*{Résumé}
+\pagenumbering{arabic}
+\addcontentsline{toc}{chapter}{Résumé}
+\noindent \textbf{GPS Field Assist} est une solution innovante conçue pour simplifier et optimiser  le travail des techniciens chargés de l installation et de la maintenance des appareils GPS sur le terrain . Elle centralise la gestion des tâches, l 'accès à la documentation technique et la configuration des appareils via SMS dans une plateforme mobile sécurisée. L'application offre une interface conviviale pour consulter le catalogue des modules GPS, organiser les interventions, effectuer des diagnostics et communiquer directement avec les appareils. Cette approche unifiée permet aux techniciens de gagner en efficacité, de réduire les erreurs et d'accélérer les processus d'installation et de maintenance.\\[0.3cm]
+\noindent \textbf{ Mots clés : } GPS , Assistance Terrain , Application Mobile , Techniciens , Gestion d'Appareils , configuration SMS , Documentation Technique , Diagnostics.\\[1cm]
+\vspace{1cm}
+\begin{otherlanguage}{english} 
+\noindent \textbf{\Large English Summary}\\[0.3cm]
+\noindent  \textbf{GPS Field Assist } is an innovative solution designed to simplify and optimize the work of technicians responsible for installing and maintaining GPS devices in the field. It centralizes task management, access to technical documentation, and configuration via SMS into a single secure mobile platform. The application provides a user-friendly interface to browse the GPS module catalog, organize interventions, perform diagnostics, and communicate directly with devices. This unified approach allows technicians to improve efficiency, reduce errors, and accelerate installation and maintenance processes.\\[0.4cm]
+\noindent \textbf{keywords:} GPS , Field Assist , Mobile Application , Technicians , Device Management, SMS Configuration , Technical Documentation , Diagnostics.
+\end{otherlanguage}
+
+
+
+
+
+
+
+\chapter*{Introduction Générale}
+\addcontentsline{toc}{chapter}{Introduction Générale}
+\noindent Dans un monde où la transformation digitale touche tous les secteurs d'activité, les entreprises doivent constamment innover pour optimiser leurs processus opérationnels et rester compétitives. 
+Le secteur de la gestion de flotte et du tracking GPS n'échappe pas à cette évolution, avec des besoins croissants en matière d'efficacité, de traçabilité et de réactivité.\\[0.3cm] 
+
+
+\noindent Tunav IT Group, acteur majeur dans le domaine des solutions GPS et IoT en Tunisie et à l'international, réalise chaque année des milliers d'interventions de maintenance et d'installation de terminaux GPS chez ses clients.
+ Ces interventions sur site révèlent une problématique majeure : la dispersion des outils utilisés par les agents terrain, qui doivent jongler entre plusieurs applications pour consulter leurs missions, accéder à la documentation technique, effectuer des diagnostics et rendre compte de leur travail. Cette fragmentation entraîne des pertes de temps, des risques d'erreur et une traçabilité imparfaite des opérations réalisées.\\[0.3cm]
+\noindent Face à ce constat, notre projet de fin d'études vise à concevoir et développer  \textbf{GPS Field Assist}, une application mobile innovante centralisant la gestion des interventions, l'accès à la documentation technique, la configuration des appareils via SMS et les outils de diagnostic dans une interface unique et intuitive. L'objectif est d'améliorer l'efficacité des interventions terrain et d'assurer une meilleure traçabilité des opérations.\\[0.3cm]
+\noindent Pour mener à bien ce projet, nous avons adopté une méthodologie agile Scrum, structurant notre travail en sprints itératifs. Le présent rapport rend  compte de l'ensemble de notre démarche.\\[0.3cm]
+
+\noindent Ce rapport est structuré en   plusieurs chapitres:\\[0.1cm]
+
+\noindent Le \textbf{premier chapitre} présente le cadre générale du projet : présentation de l'organisme d'accueil, étude de l'existant, critique de ce dernier et solution envisagée.\\[0.1cm]
+\noindent Le \textbf{deuxième chapitre} est consacré à la spécification des besoins. Nous y identifions les besoins fonctionnels, non fonctionnels et techniques, ainsi que les acteurs du système. Nous présentons également la méthodologie de conception, le diagramme de cas d'utilisation globale et le backlog produit\\[0.1cm]
+
+\noindent les \textbf{chapitres suivants} sont dédiés aux différents sprints réalisés. Chaque sprint présente le raffinement, la conception (diagrammes de classes et de séquences) et la réalisation des fonctionnalités. \\[0.1cm]
+\noindent Le diagramme de classes global sera présenté dans le dernier sprint.\\[0.1cm]
+
+
+
+
+
+
+
+
+\chapter{Cadre du projet}
+
+\section{Introduction}
+\noindent Ce premier chapitre a pour objectif de présenter le cadre général dans lequel s'inscrit notre projet de fin d'études. Nous y présentons l'organisme d'accueil Tunav IT Group, ainsi que l'analyse de la situation existante.Nous identifions ensuite les limites du système actuel pour enfin proposer la solution envisagée, GPS Field Assist.
+\section{Présentation de l'organisme d'accueil}
+\subsection{Historique et positionnement }
+\noindent Tunav IT Group est une entreprise tunisienne fondée au début des années 2000 par \textbf{Anis Kallel},un visionnaire passionné par les technologies innovantes.Depuis plus de 20 ans, l'entreprise se positionne comme un fournisseur de référence et un intégrateur de systèmes à forte valeur ajoutée dans les domaines des solutions GPS,IT et Iot.
+ Présente dans plus de 15 pays,notamment en Tunisie,en France, au Maroc, en  Côte d'Ivoire et au Sénégal, l'entreprise conçoit et déploie des solutions technologiques intelligentes, alliant performance et fiabilité. Ses domaines d'expertise couvrant le suivi GPS, la gestion de flotte, la surveillance à distance en temps réel ainsi que l'optimisation des processus métiet, au service de la transformation digitale des organisations.
+ Sa mission est de "déployer des technologies intelligentes pour booster la performance de votre entreprise et simplifier la vie en intégrant l'automatisation et l'intelligence artificielle". Sa vision est de développer sa marque à l'international pour s'imposer comme une référence  économique reconnue par sa performance durable, la qualité de son service client et son engagement citoyen.
+\begin{figure}[H]
+     \centering
+    \includegraphics[width=0.2\linewidth]{logo_Tunav.jpeg}
+    \caption{Logo de Tunav IT Group}
+    \label{fig:Logo_Tunav}
+\end{figure}
+
+\subsection{Organigramme de l'entreprise}
+
+\noindent Tunav IT Group est structurée autour de plusieurs départements clés qui assurent le bon fonctionnement de l'entreprise et la qualité des services offerts. Forte d'une équipe experte et engagée, parfaitement alignée sur les tendances et besoins du marché, elle met un point d'honneur à garantir la confidentialité et la sécurité des données de ses clients.
+
+La figure \ref{fig:organigramme} présente l'organigramme général de la société.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=1.1\textwidth]{org_2.png}
+    \caption{Organigramme de Tunav IT Group}
+    \label{fig:organigramme}
+\end{figure}
+
+\noindent L'organigramme de Tunav IT Group se compose des principaux départements et responsables suivants :
+
+\subsubsection*{Direction Générale}
+\begin{itemize}
+    \item \textbf{PDG (Président Directeur Général)} : \textbf{M. Mohamed Anis Kallel}, fondateur de l'entreprise depuis plus de 20 ans. Il assure la vision stratégique, le développement international et la supervision de l'ensemble des activités du groupe.
+\end{itemize}
+
+\subsubsection*{Ressources Humaines et Administration}
+\begin{itemize}
+    \item \textbf{Ressources Humaines et Assistante de Direction} : \textbf{Mme Sarra Dabbeil}, en charge de la gestion des talents, du recrutement, de la paie et de l'administration du personnel.
+    
+    \item \textbf{Département Financier} : \textbf{Mme Najet Boukadi}, responsable de la comptabilité, de la trésorerie, des budgets et des rapports financiers.
+    
+    \item \textbf{Expertise Comptable} : \textbf{M. Tallel Mabrouk}, expert-comptable externe assurant le contrôle et la conformité des comptes de l'entreprise.
+\end{itemize}
+
+\subsubsection*{Département Commercial et Relation Client}
+\begin{itemize}
+    \item \textbf{Directeur Commercial} : \textbf{M. Chawki Zorgui}, responsable de la stratégie commerciale, de la prospection et du développement du portefeuille clients.
+    
+    \item \textbf{Équipe Commerciale} :
+    \begin{itemize}
+        \item \textbf{Mme Eya Mejri} : Assistante Commerciale, en charge du support administratif des ventes et de la gestion des devis.
+        \item \textbf{M. Rami Chaambi} : Technico-Commercial, spécialiste des solutions GPS et IoT pour accompagner les clients dans leurs projets.
+        \item \textbf{M. Mohamed Bahri} : Technico-Commercial, expert en solutions de tracking et gestion de flotte.
+        \item \textbf{M. Radhwen} : Technico-Commercial, en charge de la prospection terrain et du suivi des comptes clients.
+    \end{itemize}
+\end{itemize}
+
+\subsubsection*{Marketing et Communication}
+\begin{itemize}
+    \item \textbf{Responsable Marketing (Freelance)} : \textbf{M. Safouen Ben Hmida}, en charge de la stratégie marketing, des campagnes digitales et de la notoriété de la marque.
+    
+    \item \textbf{Chargé(e) Marketing Digital} : responsable de la gestion des réseaux sociaux, du SEO, du contenu web et des campagnes d'acquisition.
+\end{itemize}
+
+\subsubsection*{Département Technique et IT}
+\noindent C'est au sein de ce département que se situe notre projet GPS Field Assist. Ce département est structuré comme suit :
+
+\begin{itemize}
+    \item \textbf{Manager IT} : \textbf{Mme Marwa Henchir}, responsable de la coordination des équipes techniques, de la planification des projets et de la veille technologique.
+    
+    \item \textbf{Responsable Technique} : \textbf{M. Firas Salhi} (notre encadrant professionnel), superviseur des développements techniques, garant de la qualité du code et de l'architecture des solutions.
+    
+    \item \textbf{Expert Technique} : \textbf{M. Skander ELI}, consultant senior intervenant sur les architectures complexes et les projets stratégiques.
+    
+    \item \textbf{Chef de Projet IT} : \textbf{M. Anis Allagui}, responsable de la gestion des projets, du suivi des délais et de la coordination entre les équipes.
+    
+    \item \textbf{Équipe Développement} :
+    \begin{itemize}
+        \item \textbf{M. Amine Rahmani} : Développeur full-stack, expert en applications web et mobiles.
+        \item \textbf{M. Hassen Moussi} : Développeur backend, spécialiste des bases de données et des API.
+        \textbf{M. Jawher Chebbi} : Développeur frontend et mobile, expert en interfaces utilisateur.
+    \end{itemize}
+    
+    \item \textbf{Ingénieur IT} : \textbf{M. Atef Badreddine}, en charge de l'infrastructure réseau, de la sécurité et du déploiement des solutions.
+    
+    \item \textbf{Ingénieur en Géomatique} : \textbf{Mme Chayma Ben Slama}, spécialiste des systèmes d'information géographique (SIG), des cartographies et du traitement des données spatiales.
+\end{itemize}
+
+\subsubsection*{Département Support Client (SAV)}
+\noindent Ce département est le principal utilisateur de la future application mobile GPS Field Assist.
+
+\begin{itemize}
+    \item \textbf{Chef Service SAV} : \textbf{M. Yassine Mejri}, responsable de l'assistance technique, de la gestion des tickets clients et du suivi des interventions terrain.
+    
+    \item \textbf{Assistante Technique} : \textbf{Mme Imen Guessmi}, en charge du support de premier niveau, de la qualification des demandes et de l'orientation vers les bons intervenants.
+\end{itemize}
+
+\noindent Cette structure organisationnelle reflète l'engagement de Tunav IT Group à disposer d'une équipe multidisciplinaire couvrant l'ensemble des métiers nécessaires à la conception, au développement et au déploiement de solutions innovantes dans les domaines du GPS, de l'IT et de l'IoT. La complémentarité entre les équipes techniques, commerciales et support garantit une prise en charge optimale des clients, de l'étude du besoin jusqu'à la maintenance des solutions déployées.
+
+\subsection{Métiers et solutions}
+\noindent Tunav IT Group propose une gamme complète de solutions réparties en trois grandes catégories :
+\begin{itemize}
+    \item \textbf{Tracking GPS :} le système phare est \textbf{Easy Trace}, un système de tracking GPS / GSM / Satellite accessible sur WEB, LAN et MOBILE. Il combine des appareils GPS performants et une base cartographique détaillée, offrant des services pour la sécurité et la gestion de flotte dans divers secteurs (transport, industrie, santé, tourisme). Les équipements vont du traceur standard (géoréperage, détection de remorquage) au traceur avancé (lecture CANBUS, identification du conducteur par RFID), en passant par des traceurs mobiles (Mini trace) et des solutions pour des conteneurs (serrures électroniques).
+     \begin{figure}[H]
+     \centering
+     \includegraphics[witdh=1.2 , height=0.3\textwidth]{ET8_KIT (1).png}
+      \caption{Easy Trace:ET8 Kit(pour automobile standard)}
+      \label{fig:Easy_Trace_1}
+      \end{figure}
+        \begin{figure}[H]
+     \centering
+     \includegraphics[witdh=1.2 , height=0.3\textwidth]{ETCAN_KIT (1).png}
+      \caption{Easy Trace:ETCAN Kit(pour automobile avancé)}
+      \label{fig:Easy_Trace_2}
+      \end{figure}
+    \begin{figure}[H]
+     \centering
+     \includegraphics[witdh=1.2 , height=0.3\textwidth]{MiniTrace_ KIT (1).png}
+      \caption{Mini Trace (pour usage personnel)}
+      \label{fig:Mini_Trace}
+      \end{figure}
+        \begin{figure}[H]
+     \centering
+     \includegraphics[witdh=1.2 , height=0.3\textwidth]{Capture d’écran 2026-03-14 132911.png}
+      \caption{Serrures électroniques(smart Lock)}
+      \label{fig:Serrures_électroniques}
+      \end{figure}
+    L'entreprise propose également des nouveautés comme la dashcam intelligente 
+    \textbf{Camtrack}(reconnaissance faciale, détection de fatigue).
+      \begin{figure}[H]
+     \centering
+     \includegraphics[witdh=1.2 , height=0.3\textwidth]{Capture d’écran 2026-03-14 133139.png}
+      \caption{Camtrack}
+      \label{fig:Camtrac}
+      \end{figure}
+      La smartwatch de santé \textbf{Med Watch}(surveillance des signes vitaux, connectivité 4G).
+        \begin{figure}[H]
+     \centering
+     \includegraphics[witdh=1.2 , height=0.3\textwidth]{Capture d’écran 2026-03-14 133509.png}
+      \caption{Med Watch}
+      \label{fig:Med_Watch}
+      \end{figure}
+    \item \textbf{Solutions IoT :} Ces solutions offrent une surveillance intelligente et une gestion centralisée des appareils connectés. On y trouve :
+    \begin{itemize}
+        \item \textbf{Disjoncteur intelligent :} pour fermer à distance, planifier l’arrêt/démarrage de machines et mesurer la tension électronique à distance.
+          \begin{figure}[H]
+     \centering
+     \includegraphics[witdh=1.2 , height=0.3\textwidth]{dej_1.png}
+      \caption{Disjoncteur intelligent}
+      \label{fig:Disjoncteur_intelligent}
+      \end{figure}
+      \item \textbf{Fuel Rescue :} pour détecter les anomalies comme le vol de carburant, suivre l'activité du réservoir et générer des rapports détaillés.
+        \begin{figure}[H]
+     \centering
+     \includegraphics[witdh=1.2 , height=0.3\textwidth]{fuel_1.png}
+      \caption{Fuel Rescue}
+      \label{fig:Fuel_Rescue}
+      \end{figure}
+      \item \textbf{Easy 360 :} une solution innovante de surveillance en temps réel des paramètres environnementaux (oxygène, humidité, température, pression).
+        \begin{figure}[H]
+     \centering
+     \includegraphics[witdh=1.2 , height=0.3\textwidth]{easy360.png}
+      \caption{Easy 360}
+      \label{fig:Easy_360}
+      \end{figure}
+      \item \textbf{TagIT RFID :} des solutions RFID pour l'identification, la traçabilité et la sécurisation des biens.
+         \begin{figure}[H]
+     \centering
+     \includegraphics[witdh=1.2 , height=0.3\textwidth]{rfid_1.png}
+      \caption{TagIT RFID}
+      \label{fig:TagIT_RFID}
+      \end{figure}
+    \end{itemize}
+    \item \textbf{Solutions IT} : Tunav conçoit et met en oeuvre des systèmes IT avancés qui améliorent l'efficacité, automatisent les processus et facilitent la prise de décision en temps réel. Leur expertise couvre le cloud computing, le développement de logiciels et la surveillance à distance, garantissant aux entreprises de rester compétitives.
+     
+\end{itemize}
+
+\section{Étude de l'existant}
+\subsection{Description du processus actuel}
+\noindent Actuellement,les interventions de maintenance et d'installation des terminaux GPS chez Tunav IT Group suivant un processus qui peut être décrit comme suit :
+\begin{itemize}
+    \item Un ticket d'intervention est créé dans le système Odoo suite à une demande client.
+    \item L'agent terrain reçoit sa mission par téléphone ou via sa messagerie .
+    \item Pour réaliser son intervention, l'agent doit consulter la documentation technique (souvent des PDF) correspondant à l'équipement concerné.
+    \item Il effectue des diagnostics en envoyant manuellement des commandes SMS au terminal GPS depuis son téléphone personnel.
+    \item Après l'intervention, il prend des photos et fait des vidéos avec son appareil photo comme preuve et met à jour manuellement le statut du ticket dans Odoo depuis un ordinateur, souvent en fin de journée.
+    \end{itemize}
+    \subsection{Outils utilisés}
+    \noindent Les agents utilisent plusieurs outils de manière simultanée et déconnectée:
+    \begin{itemize}
+        \item Odoo pour la consultation et la mise à jour des tickets (accessible uniquement depuis un ordinateur ou un navigateur mobile non optimisé).
+        \item Une application de messagerie(WhatsApp, Telegram) pour les communications internes et la réception des missions.
+        \item Des documents PDF stockés localement sur l'appareil ou sur un serveur d'entreprise, difficiles à consulter sur mobile.
+        \item Le téléphone pour envoyer des commandes SMS.
+        \item L'appareil photo de leur smartphone pour documenter les interventions.   
+    \end{itemize}
+    \section{Critique de l'existant}
+    \noindent L'analyse de l'existant fait apparaître plusieurs limites significatives qui nuisent à l'efficacité opérationnelle :
+    \begin{itemize}
+        \item \textbf{ Dispersion des outils :} L'utilisation de multiples applications (Odoo, messagerie, téléphone,galerie photo) entraîne une perte de temps considérable dans la navigation et la recherche d'informations.
+        \item \textbf{Manque de centralisation :}les informations sont éparpillées,ce qui complique leur consultation en temps réel sur le terrain et empêche d'avoir une vue d'ensemble d'une intervention.
+        \item \textbf{Risques d'erreur :} La saisie manuelle des informations (numéros de série, numéros de SIM, commandes SMS, comptes-rendus(images et vidéos des tâches réalisées))et la transcription des commandes SMS augmentent les risques d'erreur et d'incohérence dans les données.
+        \item \textbf{Traçabilité imparfaite:}Il est difficile d'avoir une vision claire et horodatée du déroulement des interventions, ce qui peut poser problème en cas de litige avec un client ou pour le reporting interne.
+        \item \textbf{Formation complexe :} Les nouveaux agents doivent maîtriser plusieurs outils et leurs interfaces respectives , ce qui allonge la durée  de leur intégration et de leur montée en compétence.
+        
+        
+    \end{itemize}
+    \noindent Ces limites ont un impacte direct sur l'efficacité des interventions, la réactivité face aux clients et, in fine, sur la qualité du service rendu, pourtant au cœur de la proposition de valeur de Tunav. 
+    \section{Solutions envisagée }
+   \subsection{ Présentation générale}       
+\noindent Face aux limites identifiées, nous proposons de développer  
+\textbf {GPS Field Assist}, une application mobile dédiée aux agents terrain de Tunav IT Group. Cette solution vise à centraliser l'ensemble des fonctionnalités nécessaires  aux interventions dans une interface unique, intuitive et accessible depuis un smartphone, en s'alignant  parfaitement avec la mission de l'entreprise :  "simplifier la vie en intégrant l’automatisation".
+\subsection{ Objectifs de la solution } 
+\noindent  La solution envisagée poursuit plusieurs objectifs stratégiques et opérationnels :
+\begin{itemize}
+\item Centraliser les outils métiers dans une seule application mobile pour fluidifier le travail des agents.
+ \item  Simplifier le travail des agents grâce à une interface intuitive et des processus guidés, réduisant ainsi la charge cognitive et les risques d'erreur.  
+\item  Améliorer la traçabilité des interventions grâce à un historique complet et horodaté de toutes les actions (consultations, diagnostics, photos et vidéos , changements de statut ).  
+\item  Réduire les délais de traitement des interventions en permettant une mise à jour en temps réel et un accès instantané à l'information.    
+\item Faciliter l'intégration des nouveaux agents en leur offrant un outil unique et cohérent, centralisant toute la documentation et les procédures.
+\end{itemize}
+\subsection {Fonctionnalités principales} 
+ \noindent  GPS Field Assist offre un ensemble de fonctionnalités conçues pour répondre aux besoins spécifiques des agents terrain de Tunav IT Group. Ces fonctionnalités s'articulent autour de huit axes principaux :
+ \begin{enumerate}
+     \item \textbf{Authentification sécurisée} : L'application intègre une système d'authentification robuste basé sur des tokens JWT (JSON Web Tokens) avec une expiration configurée à 24 heures, destiné aux techniciens terrain et aux administrateurs. Ce mécanisme assure la confidentialité des données, préserve l'intégrité des sessions et limite l'accès aux fonctionnalités aux seuls rôles autorisés.
+     \item \textbf{Gestion documentaire intelligente } : Les agents ont accès à un catalogue complet des modules GPS proposés par Tunav IT Group (Easy Trace, Easy Trace X, Mini Trace, etc.). La fonctionnalité d'ouverture permet de consulter les manuels techniques et les fiches d'installation pour chercher des informations à propos d'un module spécifique.
+     \item \textbf{Configuration et diagnostic par SMS } : L'application propose une interface dédiée à l'envoi de commandes SMS. Les commandes sont organisées sous forme de templates prédéfinis (ex: "STATUS", "LOCATION", "RESET"), éliminant ainsi le besoin pour l'agent de mémoriser des commandes complexes. Le système gère également l'envoi séquentiel de commandes AT pour les configurations avancées et interprète automatiquement les réponses reçues.
+     \item \textbf{Gestion des tickets Odoo } : Les agents peuvent visualiser l'ensemble des interventions qui leur sont attribuées directement depuis l'application. Pour chaque ticket, ils ont la possibilité de consulter les détails complets (client, équipement concerné, problème signalé), de mettre à jour le statut en temps réel (en cours, terminée, à faire) et d'ajouter des notes ou commentaires pour enrichir le suivi. Les modifications sont synchronisées automatiquement avec le système Odoo.
+     \item \textbf{Administration centralisée} : Un rôle administrateur peut créer, modifier et supprimer des techniciens, consulter les listes de techniciens et leurs tâches, et attribuer ou retirer des tâches pour chaque utilisateur. Cette interface de gestion est un élément fondamental pour l'application GPS Field Assist afin de maintenir l'organisation des équipes terrain.
+     \item \textbf{Traçabilité complète des interventions } : L'application enregistre un historique détaillé de toutes les actions effectuées par l'agent : consultation des tickets, envoi de commandes SMS, capture de photos, mises à jour de statut, etc. Chaque action est horodatée et associée à l'utilisateur concerné, garantissant ainsi une traçabilité irréprochable des interventions. Cette fonctionnalité est essentielle pour le reporting interne et la gestion des éventuels litiges clients.
+     \item \textbf{Assistant intelligent (Chatbot)} :
+     Un assistant conversationnel intégré aide les techniciens à naviguer dans la documentation PDF disponible sur l'application. Il permet d'interroger directement les manuels techniques et fiches d'installation en langage naturel, extrayant instantanément les informations pertinentes sans passer par la recherche manuelle dans les documents.
+     \item \textbf{Recommandation personnalisée} :
+     Pour chaque tâche figurant dans la liste des interventions à réaliser, l'application fournit des recommandations contextuelles adaptées : suggestion des outils et pièces probablement nécessaires (ex: "pour cette intervention, vous aurez probablement besoin de x et y"), affichage automatique des tutoriels pertinents selon la nature de l'intervention, et prédiction de la durée estimée basée sur l'historique des techniciens ayant effectué des tâches similaires.
+     \item \textbf{Système de recommandation de diagnostics et maintenance prédictive } :
+     L'application intègre deux mécanismes d’intelligence artificielle complémentaires qui déclenchent des notifications directement sur la page d'accueil. D'une part, un moteur de recommandation basé sur le Machine Learning analyse les problèmes récurrents par type d'équipement, suggère automatiquement les diagnostics les plus pertinents et les commandes SMS appropriées selon le symptôme signalé, et propose les pièces de rechange à emporter selon l'historique des pannes. D'autre part, un module de maintenance prédictive exploite des modèles de séries temporelles et des algorithmes de classification pour analyser les données de diagnostic, détecter les signes avant-coureurs de panne, identifier les équipements à risque et planifier proactivement les interventions préventives. Ces deux systèmes opèrent en synergie et remontent leurs alertes sous forme de notifications sur la page d'accueil, permettant au technicien d'anticiper les interventions et de réduire les temps d'immobilisation imprévus.
+     \noindent Cette approche unifiée, enrichie par des capacités d'intelligence artificielle, permet aux techniciens de gagner significativement en efficacité, de réduire les risques d'erreur et d'accélérer les processus d'installation et de maintenance, tout en assurant une traçabilité complète et une meilleure anticipation des besoins opérationnels.
+ \end{enumerate}
+ \section{Méthodologie Scrum}
+
+ \subsection{Rôles}
+ \noindent Pour la réalisation de GPS Field Assist, nous avons appliqué une organisation de type Scrum adaptée à un projet de fin d'études. Les rôles principaux sont les suivants :
+ \begin{itemize}
+     \item \textbf{Product Owner} : Tunav IT Group, représenté par l'encadrant professionnel \textbf{M. Firas Salhi}. Il définit les exigences, priorise le backlog et valide les livrables.
+     \item \textbf{Scrum Master} : l'une des étudiantes, chargée de la coordination, du suivi des sprints et de la communication entre l'équipe et l'encadrement.
+     \item \textbf{Équipe de développement} : composée de deux étudiantes (Ons Nairi et Eya Chalbi) et des experts techniques de Tunav IT Group, responsables de l'implémentation mobile et backend.
+     \item \textbf{Parties prenantes} : encadrante académique \textbf{Mme Imen Messaoudi}, techniciens du SAV, et responsables fonctionnels de Tunav IT Group.
+ \end{itemize}
+
+ \subsection{Artefacts}
+ \noindent Les artefacts Scrum utilisés dans ce projet sont :
+ \begin{itemize}
+     \item \textbf{Product Backlog} : liste priorisée des besoins fonctionnels et techniques. Il contient les user stories, les tâches de développement et les critères de validation.
+     \item \textbf{Sprint Backlog} : ensemble des tâches sélectionnées pour chaque sprint, avec des objectifs clairs et mesurables.
+     \item \textbf{Definition of Done (DoD)} : ensemble de critères exigés pour déclarer une fonctionnalité terminée (code implémenté, testé, documenté et intégré).
+     \item \textbf{Burndown simplifié} : suivi manuel de l'avancement des tâches pendant chaque sprint.
+ \end{itemize}
+
+ \subsection{Planification globale des sprints}
+ \noindent Le projet a été organisé en plusieurs sprints successifs. La planification globale est la suivante :
+ \begin{itemize}
+     \item \textbf{Sprint 0} : Authentification et configuration initiale de l'architecture backend/mobile.
+     \item \textbf{Sprint 1} : Gestion des tâches Odoo et synchronisation des interventions.
+     \item \textbf{Sprint 2} : Gestion documentaire et consultation des fiches techniques.
+     \item \textbf{Sprint 3} : Diagnostic SMS et prise de photo / vidéo sur le terrain.
+     \item \textbf{Sprint 4} : Traçabilité, historique des actions et tableaux de bord.
+     \item \textbf{Sprint 5} : Assistant intelligent et recommandations connectées.
+ \end{itemize}
+ \noindent Chaque sprint a été planifié en itérations courtes de 1 à 2 semaines, avec une revue en fin de cycle et des ajustements des priorités en fonction des retours de l'encadrant professionnel. Le choix d'une organisation Scrum nous a permis de livrer rapidement un socle fonctionnel sécurisé puis d'ajouter progressivement les fonctionnalités métier en respectant le principe d'engagement continu.
+
+ \section { Conclusion }   
+\noindent Ce premier chapitre nous a permis de présenter le cadre général de notre projet en nous appuyant sur les informations détaillées de Tunav IT Group. Nous avons mis en lumière la richesse et la diversité de son offre, ainsi que son engagement en faveur de l'innovation. L'analyse du processus actuel de gestion des interventions a révélé des lacunes importantes en termes d'efficacité et de traçabilité, en contradiction avec la performance que l'entreprise souhaite incarner. La solution envisagée, GPS Field Assist, a été introduite comme une réponse concrète à ces défis, avec des objectifs et des fonctionnalités alignés sur la mission de l'entreprise. Le chapitre suivant sera consacré à la spécification détaillée des besoins pour cette application.
+
+
+
+
+
+
+
+
+
+
+
+
+
+\chapter{Spécification des besoins}
+\section{Introduction}
+\noindent Ce chapitre formalise les besoins du système GPS Field Assist en se basant sur l'étude de l'existant et les objectifs définis précédemment. Il expose les acteurs, les besoins fonctionnels, non fonctionnels, le backlog produit, le diagramme de cas d'utilisation, ainsi que la définition de la qualité attendue.
+
+\section{Identification des acteurs}
+\noindent Les acteurs intervenant dans le système sont :
+\begin{itemize}
+    \item \textbf{Technicien terrain} : utilisateur principal de l'application mobile. Il consulte ses missions, envoie des commandes SMS, saisit des notes, et réalise des interventions.
+    \item \textbf{Encadrant professionnel} : supervise les flux, valide les tickets et assure le lien avec le backend et Odoo.
+    \item \textbf{Administrateur de Tunav IT Group} : gère les comptes, les droits d'accès et les configurations de l'application.
+    \item \textbf{Système Odoo} : système tiers de gestion des tickets et des interventions. Il fournit les tâches et reçoit les mises à jour de statut.
+    \item \textbf{Backend GPS Field Assist} : service FastAPI qui authentifie les utilisateurs, stocke les données, synchronise les tâches et fournit les fonctionnalités métiers.
+    \item \textbf{Dispositif GPS} : terminal sur le terrain communiquant par SMS et recevant les commandes de configuration.
+\end{itemize}
+
+\subsection{Besoins fonctionnels (User Stories)}
+\begin{itemize}
+    \item En tant que technicien terrain, je souhaite me connecter à l'application avec mes identifiants afin d'accéder à mes interventions.
+    \item En tant que technicien, je veux recevoir la liste des tâches Odoo qui me sont attribuées pour travailler sur mes missions depuis le mobile.
+    \item En tant que technicien, je veux pouvoir consulter la documentation technique d'un module GPS pour vérifier les procédures d'installation.
+    \item En tant que technicien, je veux envoyer des commandes SMS préconfigurées au terminal GPS pour diagnostiquer et configurer l'équipement.
+    \item En tant que technicien, je veux mettre à jour le statut d'un ticket (en cours, terminé, à faire) pour synchroniser mon travail avec Odoo.
+    \item En tant que technicien, je veux capturer et stocker des photos ou des vidéos depuis l'application pour documenter mes interventions.
+    \item En tant qu'administrateur, je veux que l'authentification soit sécurisée pour limiter l'accès aux données aux seuls techniciens autorisés.
+    \item En tant qu'utilisateur, je veux disposer d'un historique horodaté des actions pour assurer la traçabilité des interventions.
+    \item En tant qu'utilisateur, je veux recevoir des recommandations contextuelles pour préparer les pièces et outils nécessaires à chaque intervention.
+\end{itemize}
+
+\subsection{Besoins non fonctionnels}
+\begin{itemize}
+    \item \textbf{Sécurité} : toutes les connexions doivent être protégées par JWT et la gestion des sessions doit être sécurisée.
+    \item \textbf{Performance} : l'application mobile doit répondre rapidement aux actions des utilisateurs, même en réseau mobile instable.
+    \item \textbf{Disponibilité} : le backend doit être accessible sur le réseau local avec gestion du redémarrage automatique.
+    \item \textbf{Portabilité} : l'application mobile doit pouvoir être installée sur des appareils Android pour les techniciens terrain.
+    \item \textbf{Facilité d'utilisation} : l'interface doit être intuitive, avec des processus guidés et des écrans clairs pour limiter la formation.
+    \item \textbf{Robustesse} : l'application doit gérer proprement les erreurs réseau, les réponses SMS invalides et les accès hors ligne partiel.
+    \item \textbf{Interopérabilité} : le backend doit pouvoir évoluer vers une intégration complète avec Odoo et d'autres services externes.
+\end{itemize}
+
+\subsection{Confidentialité et contrôle d'accès}
+\noindent Le projet GPS Field Assist implémente un contrôle d'accès basé sur les rôles pour séparer clairement les permissions des techniciens et des administrateurs.
+\begin{itemize}
+    \item \textbf{Rôle technicien} : accès aux fonctionnalités terrain seulement : consultation des interventions, envoi de commandes SMS, consultation des documents techniques, mise à jour des statuts et historique des actions.
+    \item \textbf{Rôle administrateur} : accès élargi au backend avec une interface de gestion CRUD des comptes utilisateurs, des droits, et des configurations métier. Cette interface permet de créer, lire, mettre à jour et supprimer des utilisateurs techniciens, de gérer les identifiants Odoo, et de consulter les tâches attribuées à chaque technicien.
+    \item \textbf{Gestion des tâches par administrateur} : l'administrateur peut consulter les affectations de tâches pour chaque technicien via l'endpoint `GET /api/admin/technicians/{user_id}/tasks`, ajouter de nouvelles tâches avec `POST /api/admin/technicians/{user_id}/tasks`, et retirer des tâches existantes avec `DELETE /api/admin/technicians/{user_id}/tasks/{task_id}`. Cette possibilité assure une supervision fine de l'activité terrain et un rattachement clair des interventions aux ressources humaines disponibles.
+    \item \textbf{Gestion des techniciens} : le module d'administration propose également les actions CRUD suivantes : création d'un technicien (`POST /api/admin/technicians`), suppression (`DELETE /api/admin/technicians/{user_id}`), mise à jour du nom d'utilisateur (`PUT /api/admin/technicians/{user_id}/username`) et mise à jour de l'identifiant Odoo (`PUT /api/admin/technicians/{user_id}/odoo-id`).
+    \item \textbf{Protection des routes} : les endpoints critiques tels que `/api/tasks`, `/api/files` et les routes d'administration sont protégés par JWT. Le backend vérifie explicitement le rôle de l'utilisateur à chaque requête, avec une logique `require_admin` qui empêche un utilisateur technicien d'accéder aux fonctions réservées à l'administrateur.
+    \item \textbf{Séparation des responsabilités} : les administrateurs disposent d'un tableau de bord d'administration via l'application mobile, tandis que les techniciens disposent d'une interface simplifiée orientée intervention terrain. Cette séparation réduit les risques d'erreur opérationnelle et protège les informations sensibles de l'entreprise.
+\end{itemize}
+
+\subsection{Architecture technique et flux de données}
+\noindent Le système combine une application mobile Flutter et un backend FastAPI avec une base de données PostgreSQL. Le flux de données principal est le suivant :
+\begin{itemize}
+    \item Le technicien saisit ses identifiants dans l'application mobile.
+    \item Le mobile envoie une requête POST à `/api/auth/login` avec le nom d'utilisateur et le mot de passe.
+    \item Le backend authentifie l'utilisateur, génère un JWT signé et returne les informations d'identité et le rôle.
+    \item Le mobile stocke le token JWT dans `SharedPreferences` et l'envoie dans l'en-tête `Authorization: Bearer <token>` pour chaque requête suivante.
+    \item Les routes protégées utilisent la dépendance `get_current_user` pour valider le token et vérifier le rôle de l'utilisateur.
+    \item Les routes administratives utilisent `require_admin` pour s'assurer que seuls les utilisateurs de rôle `admin` peuvent accéder aux opérations de gestion des comptes et des tâches.
+\end{itemize}
+\noindent Cette architecture assure une chaîne de confiance entre l'application mobile et le backend, en limitant les droits aux seules actions autorisées par le rôle de l'utilisateur.
+
+\subsection{Product Backlog global}
+\begin{enumerate}
+    \item Authentification utilisateur avec JWT.
+    \item Écran de connexion et gestion du token côté mobile.
+    \item Endpoints FastAPI pour la récupération des tâches Odoo et la mise à jour des statuts.
+    \item Module de synchronisation des documents techniques.
+    \item Envoi de commandes SMS vers les terminaux GPS.
+    \item Gestion de l'historique des actions et des pièces jointes (photos, vidéos).
+    \item Interface d'administration pour consulter, attribuer et retirer des tâches par technicien.
+    \item Assistant intelligent pour la recherche dans la documentation.
+    \item Recommandations de maintenance et diagnostics contextuels.
+    \item Configuration de l'adresse du serveur mobile via SharedPreferences.
+    \item Sécurité et tests d'acceptation.
+\end{enumerate}
+
+\subsection{Diagramme de cas d'utilisation global}
+\noindent Un diagramme de cas d'utilisation global illustre les interactions entre le Technicien terrain, l'Administrateur, le Backend GPS Field Assist et le système Odoo. Les principaux cas d'utilisation sont : Connexion, Consultation des interventions, Mise à jour du statut, Envoi de commande SMS, Consultation documentation, et Traçabilité des actions.
+
+\subsection{Definition of Done (DoD)}
+\noindent Pour chaque story, la définition de terminée comprend :
+\begin{itemize}
+    \item Code implémenté et intégré dans le projet.
+    \item Documentation de la fonctionnalité dans le rapport.
+    \item Tests fonctionnels exécutés et réussis.
+    \item Validation de l'interface utilisateur.
+    \item Vérification de la sécurité minimale et de la traçabilité.
+\end{itemize}
+
+\section{Conclusion}
+\noindent Ce chapitre formalisait les besoins du projet GPS Field Assist afin de garantir une implémentation cohérente et pertinente. Il a identifié les acteurs, les attentes des utilisateurs et les contraintes techniques, tout en proposant un backlog structuré. Ces bases permettront d'encadrer les prochains sprints et de faciliter la communication entre les équipes.
+
+\chapter{Sprint 0 : Authentification}
+
+\section{Introduction}
+\noindent Le sprint 0 a été consacré à la mise en place de l'authentification, du socle technique backend et de la configuration initiale de l'application mobile. Cette étape est fondamentale car elle garantit l'accès sécurisé aux données métier et établit les premières briques de l'architecture.
+
+\section{Sprint Planning (objectif + User Stories sélectionnées)}
+\noindent \textbf{Objectif du sprint 0} : construire un mécanisme d'authentification sécurisé et testé, puis permettre à un technicien de se connecter à l'application mobile.
+
+\noindent Les user stories sélectionnées sont :
+\begin{itemize}
+    \item En tant que technicien, je veux me connecter avec un identifiant et un mot de passe pour accéder à mes interventions.
+    \item En tant que technicien, je veux que mon identité soit vérifiée par le backend afin de protéger les informations sensibles.
+    \item En tant qu'administrateur, je veux un token JWT valide permettant à l'application mobile d'accéder aux endpoints protégés.
+\end{itemize}
+
+\subsection{Backlog du Sprint}
+\begin{itemize}
+    \item Concevoir l'API d'authentification avec FastAPI.
+    \item Créer le modèle de requête `LoginRequest` et réponse `LoginResponse`.
+    \item Implémenter la génération du token JWT dans `auth_service.py`.
+    \item Ajouter le routeur `/api/auth/login` dans le backend.
+    \item Développer l'écran de connexion Flutter et la gestion de session.
+    \item Stocker l'URL du serveur et le token JWT côté mobile.
+    \item Écrire des tests de connexion backend (`test_login.py`, `test_login_local.py`).
+\end{itemize}
+
+\subsection{Raffinement des cas d'utilisation}
+\noindent Les cas d'utilisation détaillés pour ce sprint sont :
+\begin{itemize}
+    \item L'utilisateur saisit son nom d'utilisateur et son mot de passe.
+    \item Le mobile envoie une requête POST vers `/api/auth/login`.
+    \item Le backend vérifie les informations avec la base de données PostgreSQL.
+    \item En cas de succès, le backend retourne un token JWT et les informations de l'utilisateur.
+    \item Le mobile stocke le token et passe à l'écran d'accueil sécurisé.
+    \item En cas d'échec, l'utilisateur reçoit un message d'erreur clair.
+\end{itemize}
+
+\subsection{Conception}
+\noindent L'architecture technique du sprint 0 réunit les composants suivants :
+\begin{itemize}
+    \item \textbf{Backend FastAPI} : point d'entrée `main.py`, routeur d'authentification `src/routes/auth.py`, logique métier `src/controllers/auth_controller.py`, et service JWT `src/services/auth_service.py`.
+    \item \textbf{Base de données PostgreSQL} : table `users` contenant les comptes des techniciens et administrateurs, ainsi qu'une table `tasks` permettant d'affecter des interventions à un utilisateur.
+    \item \textbf{Mobile Flutter} : écran de connexion, gestion des préférences avec `SharedPreferences`, et configuration dynamique de l'URL serveur dans `mobile/lib/utils/config.dart`.
+\end{itemize}
+
+\noindent Le backend utilise une clé secrète `SECRET_KEY` et l'algorithme HS256 pour signer les tokens JWT. La durée d'expiration est définie à 30 jours pour un équilibre entre sécurité et confort utilisateur. Le token contient les informations minimales : nom d'utilisateur, rôle et identifiant. Cette information de rôle est essentielle pour distinguer un technicien d'un administrateur et pour verrouiller l'accès aux routes administratives.
+
+\noindent En pratique, la connexion aboutit à un appel `POST /api/auth/login` qui retourne un objet `LoginResponse` contenant le token et un objet `user` avec les attributs `id`, `username` et `role`. Le stockage local du token dans `SharedPreferences` permet une reconnexion transparente tant que le token est valide.
+
+\noindent Côté mobile, l'adresse du serveur peut être personnalisée dans les paramètres. Cette configuration est stockée en local et permet au technicien de modifier facilement l'accès au backend lorsqu'il change de réseau.
+
+\section{Résultats attendus}
+\begin{itemize}
+    \item Un technicien peut se connecter avec des identifiants valides.
+    \item Le backend renvoie un token JWT utilisable pour les endpoints protégés.
+    \item Le mobile conserve le token et l'adresse du serveur entre les sessions.
+    \item Les erreurs d'authentification sont clairement affichées.
+    \item La solution est documentée et testée avec un scénario de connexion complet.
+\end{itemize}
+
+\section{Outils et tests}
+\noindent Pour valider le sprint, nous avons utilisé des outils et des scripts existants du projet :
+\begin{itemize}
+    \item `backend/QUICK_START.md` et `backend/TEST_LOGIN_README.md` pour le guide de test.
+    \item `backend/test_login.py` et `backend/test_login_local.py` pour vérifier la génération du token.
+    \item `backend/fix_password.bat` et `backend/start_here.bat` pour configurer l'environnement PostgreSQL.
+\end{itemize}
+
+\section{Conclusion du sprint}
+\noindent Le sprint 0 a posé les bases sécurisées du projet GPS Field Assist : un backend FastAPI capable de générer et vérifier des JWT, et une application Flutter configurée pour communiquer avec le serveur. Cette étape critique garantit que les prochaines fonctionnalités pourront s'appuyer sur une authentification stable et un accès contrôlé aux données.
+
+\chapter{Sprint 1 : Gestion des interventions et synchronisation}
+
+\section{Introduction}
+\noindent Le sprint 1 a été centré sur l'intégration des tickets et la synchronisation des tâches opérationnelles avec le backend. L'objectif était de permettre au technicien de consulter ses interventions depuis l'application mobile et de mettre à jour le statut de chaque ticket.
+
+\section{Sprint Planning (objectif + User Stories sélectionnées)}
+\noindent \textbf{Objectif du sprint 1} : offrir un accès direct aux interventions et assurer la synchronisation des statuts entre l'application mobile et le backend.
+
+\noindent Les user stories sélectionnées sont :
+\begin{itemize}
+    \item En tant que technicien, je veux voir la liste de mes interventions pour planifier mon travail.
+    \item En tant que technicien, je veux modifier le statut d'un ticket pour signaler l'avancement de mon intervention.
+    \item En tant que technicien, je veux accéder aux détails d'un ticket directement depuis mon mobile.
+\end{itemize}
+
+\section{Backlog du Sprint}
+\begin{itemize}
+    \item Développer le service mobile `TaskService` pour récupérer les tâches depuis le backend.
+    \item Mettre en place un endpoint `/api/tasks` protégé par JWT dans le backend.
+    \item Gérer une API helpdesk distante en fallback, puis une API locale pour les tâches.
+    \item Permettre la mise à jour du statut des tickets avec `PUT /api/tasks/{taskId}/status`.
+    \item Ajouter un écran de consultation des détails de tâche et de son historique.
+\end{itemize}
+
+\section{Architecture et conception}
+\noindent Le module de synchronisation s'appuie sur deux sources principales : une API helpdesk distante dédiée aux tickets Odoo et le backend local du projet. Le service Flutter `mobile/lib/services/task_service.dart` effectue une première tentative vers `http://41.226.24.13:5000/api/helpdesk/tasks` puis bascule sur `Config.effectiveUrl/api/tasks` si la route distante est inaccessible.
+
+\noindent Ce mécanisme de fallback garantit que le technicien peut consulter ses interventions même lorsque la connexion distante est dégradée, en privilégiant le serveur local lorsqu'il est disponible. Le service inclut aussi l'envoi du token JWT dans les en-têtes `Authorization: Bearer` pour sécuriser l'accès aux données.
+
+\section{Résultats attendus}
+\begin{itemize}
+    \item Affichage des tickets attribués au technicien.
+    \item Consultation des détails d'une tâche, y compris le client, l'équipement et le problème signalé.
+    \item Mise à jour du statut d'un ticket en temps réel.
+    \item Utilisation du token JWT pour protéger les endpoints de tâche.
+\end{itemize}
+
+\section{Tests et validation}
+\noindent Les tests ont porté sur la récupération des tâches et la mise à jour des statuts via l'API mobile. Des cas de test de connexion et d'accès aux ressources protégées ont été réalisés en complément des scripts existants de login pour vérifier la persistance du token.
+
+\section{Conclusion du sprint}
+\noindent Le sprint 1 a permis de valider l'accès aux interventions et la synchronisation des statuts grâce à une architecture mobile flexible. Le choix d'un fallback entre une API distante helpdesk et une API locale renforce la disponibilité de l'application sur le terrain.
+
+\chapter{Sprint 2 : Gestion documentaire et consultation technique}
+
+\section{Introduction}
+\noindent Le sprint 2 a été dédié à l'intégration de la documentation technique et à la consultation des fiches des modules GPS. La finalité était de réduire le besoin de sources externes et de centraliser les manuels dans l'application mobile.
+
+\section{Sprint Planning (objectif + User Stories sélectionnées)}
+\noindent \textbf{Objectif du sprint 2} : proposer un catalogue technique intégré et simplifier la recherche d'informations produit.
+
+\noindent Les user stories sélectionnées sont :
+\begin{itemize}
+    \item En tant que technicien, je veux consulter la documentation d'un module GPS pour réaliser une installation correcte.
+    \item En tant que technicien, je veux accéder rapidement aux fiches techniques depuis la liste des interventions.
+\end{itemize}
+
+\section{Backlog du Sprint}
+\begin{itemize}
+    \item Développer le service de consultation de PDF et de documents techniques.
+    \item Créer l'architecture des écrans mobiles pour le catalogue des modules.
+    \item Mettre en place la synchronisation des documents et leur affichage offline.
+    \item Ajouter un système de recherche ou de filtre simple dans les fiches techniques.
+\end{itemize}
+
+\section{Architecture et conception}
+\noindent La documentation est organisée comme un catalogue de modules GPS, avec des fiches techniques pour Easy Trace, Mini Trace et d'autres équipements. Le service mobile tire parti des fichiers PDF embarqués ou récupérés depuis le backend, offrant un accès structuré aux manuels d'installation.
+
+\noindent L'architecture intègre également des métadonnées par module, ce qui facilite l'affichage contextualisé des procédures et des commandes SMS associées à chaque équipement. Cette structuration permet d'éviter les recherches manuelles dans des documents dispersés.
+
+\section{Résultats attendus}
+\begin{itemize}
+    \item Catalogue accessible depuis le mobile avec liste des modules GPS.
+    \item Consultation fluide de la documentation technique associée à chaque équipement.
+    \item Réduction du recours aux PDF externes ou aux documents stockés localement.
+\end{itemize}
+
+\section{Tests et validation}
+\noindent Les tests ont vérifié l'ouverture de fiches techniques, la navigation entre les documents et la robustesse de l'affichage. Des scénarios d'utilisation offline ont été simulés pour confirmer que les documents restent accessibles lorsque la connexion est instable.
+
+\section{Conclusion du sprint}
+\noindent Le sprint 2 a permis de rapprocher la documentation des techniciens de l'application elle-même. Cette centralisation améliore la réactivité en intervention et réduit le risque d'erreur lié à l'utilisation de documents non à jour.
+
+\chapter{Sprint 3 : Diagnostic SMS et configuration opérateur}
+
+\section{Introduction}
+\noindent Le sprint 3 a ciblé le diagnostic des terminaux GPS et la configuration des opérateurs mobiles. L'objectif était de permettre à l'agent de piloter un terminal à distance via des commandes SMS standardisées.
+
+\section{Sprint Planning (objectif + User Stories sélectionnées)}
+\noindent \textbf{Objectif du sprint 3} : rendre le diagnostic des équipements GPS plus rapide et plus fiable, tout en facilitant la gestion des configurations opérateurs.
+
+\noindent Les user stories sélectionnées sont :
+\begin{itemize}
+    \item En tant que technicien, je veux envoyer des commandes SMS prédéfinies à un terminal GPS pour réaliser un diagnostic.
+    \item En tant que technicien, je veux sélectionner un opérateur mobile et appliquer le bon APN pour la configuration.
+\end{itemize}
+
+\section{Backlog du Sprint}
+\begin{itemize}
+    \item Développer l'écran de diagnostic SMS séquentiel.
+    \item Intégrer les commandes APN pour Orange, Ooredoo et Telecom.
+    \item Stocker la configuration opérateur dans `SharedPreferences`.
+    \item Fournir un historique des messages envoyés et reçus pour chaque intervention.
+\end{itemize}
+
+\section{Architecture et conception}
+\noindent Le service de configuration mobile `mobile/lib/utils/config.dart` contient les commandes APN préconfigurées pour les trois opérateurs tunisiens. La sélection de l'opérateur est persistée localement afin que le technicien conserve sa configuration entre les sessions.
+
+\noindent Le module de SMS séquentiel permet d'envoyer des commandes ordonnées, de collecter les réponses et d'afficher un retour immédiat à l'utilisateur. En intégrant la logique de diagnostic directement dans l'application, le technicien n'a plus besoin de mémoriser des chaînes complexes.
+
+\section{Résultats attendus}
+\begin{itemize}
+    \item Envoi de commandes SMS standardisées depuis l'application.
+    \item Configuration automatique des paramètres APN selon l'opérateur choisi.
+    \item Historique local des actions de diagnostic.
+\end{itemize}
+
+\section{Tests et validation}
+\noindent Les tests ont confirmé le stockage de l'opérateur sélectionné et la récupération des commandes APN. Des scénarios de diagnostic ont validé l'envoi de SMS séquentiels et la gestion des erreurs liées à la connectivité mobile.
+
+\section{Conclusion du sprint}
+\noindent Le sprint 3 a rapproché le technicien terrain de l'équipement GPS, en offrant un outil de diagnostic intégré et une configuration opérateur durable. Cela renforce la continuité de service et la capacité d'intervenir rapidement sur site.
+
+\chapter{Sprint 4 : Diagnostic intelligent et maintenance prédictive}
+
+\section{Introduction}
+\noindent Le sprint 4 introduit deux mécanismes d'intelligence artificielle complémentaires, accessibles directement depuis la page d'accueil. L'objectif est d'anticiper les pannes et de guider le technicien vers les commandes SMS les plus pertinentes selon le contexte de l'intervention.
+
+\section{Sprint Planning (objectif + User Stories sélectionnées)}
+\noindent \textbf{Objectif du sprint 4} : enrichir l'application d'une couche IA proactive pour réduire le temps de diagnostic et prévenir les pannes récurrentes.
+
+\noindent Les user stories sélectionnées sont :
+\begin{itemize}
+    \item En tant que technicien, je veux voir sur la page d'accueil les équipements à risque détectés automatiquement.
+    \item En tant que technicien, je veux recevoir des suggestions de commandes SMS adaptées au symptôme et au type d'équipement signalé.
+\end{itemize}
+
+\section{Backlog du Sprint}
+\begin{itemize}
+    \item Développer le moteur de recommandation SMS par symptôme et type d'équipement (backend).
+    \item Implémenter le module de maintenance prédictive par analyse de séries temporelles (backend).
+    \item Créer le widget d'alertes IA affiché en haut de la page d'accueil (mobile).
+    \item Exposer les endpoints \texttt{POST /api/ai/recommendations} et \texttt{GET /api/ai/predictive}.
+\end{itemize}
+
+\section{Architecture et conception}
+
+\subsection{Moteur de recommandation SMS}
+\noindent Le service \texttt{backend/src/services/ai\_diagnostic\_service.py} maintient une base de règles associant chaque symptôme (\textit{pas de signal}, \textit{hors ligne}, \textit{installation}, etc.) aux commandes SMS recommandées pour chaque modèle d'équipement GPS (GT06N, FM4200, ET7, etc.). Lors d'un appel à \texttt{POST /api/ai/recommendations}, le service interroge également la base de données pour identifier les symptômes les plus fréquents dans les descriptions de tâches existantes, permettant ainsi une recommandation contextualisée.
+
+\subsection{Module de maintenance prédictive}
+\noindent Le même service expose \texttt{GET /api/ai/predictive}, qui analyse les 90 derniers jours d'interventions stockées en base. Pour chaque équipement (identifié par le champ \texttt{partner\_name}), il compare le nombre d'interventions sur les 30 derniers jours avec la période précédente. Une tendance croissante supérieure à 50\% déclenche une alerte de risque. En parallèle, un calcul de l'intervalle moyen entre interventions permet d'estimer la date probable de la prochaine panne.
+
+\noindent Ce mécanisme repose sur une analyse de séries temporelles légère, sans dépendance externe, exploitant uniquement les données déjà présentes dans la base PostgreSQL du projet.
+
+\subsection{Intégration mobile}
+\noindent Le widget Flutter \texttt{AiAlertsWidget} (\texttt{mobile/lib/widgets/ai\_alerts\_widget.dart}) est inséré en haut de la page TODO de l'écran d'accueil. Il charge en parallèle les deux endpoints au démarrage et affiche :
+\begin{itemize}
+    \item Les équipements à surveiller avec leur prochaine intervention estimée.
+    \item Les équipements à tendance croissante avec le pourcentage d'augmentation.
+    \item Les problèmes récurrents avec les commandes SMS suggérées.
+\end{itemize}
+\noindent Le widget est rétractable (accordéon) pour ne pas encombrer l'interface. Un badge numérique indique le nombre total d'alertes actives.
+
+\section{Résultats attendus}
+\begin{itemize}
+    \item Affichage des alertes prédictives sur la page d'accueil sans action manuelle.
+    \item Suggestions de commandes SMS pertinentes selon le symptôme et l'équipement.
+    \item Identification proactive des équipements à risque avant la panne.
+\end{itemize}
+
+\section{Tests et validation}
+\noindent Les tests ont porté sur la cohérence des recommandations SMS pour chaque combinaison symptôme/équipement, ainsi que sur le calcul de tendance avec des jeux de données simulant des historiques d'interventions croissants. Le widget mobile a été validé en mode connecté et en cas d'indisponibilité du backend (retour silencieux sans erreur).
+
+\section{Conclusion du sprint}
+\noindent Le sprint 4 apporte une dimension prédictive à l'application, transformant GPS Field Assist d'un outil réactif en une plateforme proactive. Les deux mécanismes IA s'appuient exclusivement sur les données existantes du projet, sans infrastructure supplémentaire, ce qui garantit leur déploiement immédiat sur le terrain.
+
+\chapter{Conclusion générale et perspectives}
+
+\section{Conclusion générale}
+\noindent Le projet GPS Field Assist modernise la gestion des interventions GPS chez Tunav IT Group en centralisant l'authentification, la gestion des tâches, la documentation et le diagnostic terrain. Les quatre sprints ont permis de construire une solution complète : authentification JWT, synchronisation des tickets, consultation documentaire, diagnostic SMS et intelligence artificielle prédictive.
+
+\noindent L'application mobile a été conçue pour fonctionner dans un environnement de terrain souvent instable, avec des mécanismes de fallback vers des APIs locales et des préférences persistantes. La couche IA du sprint 4 enrichit cette base en anticipant les pannes et en guidant le technicien vers les actions les plus efficaces.
+
+\section{Perspectives d'évolution}
+\begin{itemize}
+    \item Compléter l'intégration Odoo avec une synchronisation bidirectionnelle plus poussée des tickets et des pièces jointes.
+    \item Affiner le modèle prédictif avec des algorithmes de séries temporelles plus avancés (ARIMA, Prophet) lorsque le volume de données sera suffisant.
+    \item Intégrer un assistant intelligent de type chatbot pour la recherche en langage naturel dans la documentation.
+    \item Étendre l'application à la collecte automatique de données GPS et à la génération de rapports d'intervention enrichis.
+\end{itemize}
+
+\noindent La structure Scrum adoptée facilite les itérations suivantes et la montée en charge fonctionnelle. Les bases techniques déjà établies rendent possibles des ajouts rapides visant à faire de GPS Field Assist une solution pleinement opérationnelle pour Tunav IT Group.
+
+\end{document}

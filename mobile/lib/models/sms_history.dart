@@ -50,6 +50,7 @@ enum SmsHistoryStatus {
   pending,   // En attente
   failed,    // Non envoyé
   delivered, // Livré
+  received,  // Reçu (réponse)
 }
 
 extension SmsHistoryStatusExtension on SmsHistoryStatus {
@@ -63,6 +64,8 @@ extension SmsHistoryStatusExtension on SmsHistoryStatus {
         return 'Non envoyé';
       case SmsHistoryStatus.delivered:
         return 'Livré';
+      case SmsHistoryStatus.received:
+        return 'Reçu';
     }
   }
 }
