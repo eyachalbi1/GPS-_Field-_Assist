@@ -1,0 +1,98 @@
+# Environnements Python
+backend/venv/
+backend/.venv/
+backend/*.egg-info/
+backend/.pytest_cache/
+backend/htmlcov/
+backend/.coverage
+
+# Environnements Flutter
+mobile/.dart_tool/
+mobile/build/
+mobile/.flutter-plugins
+mobile/.flutter-plugins-dependencies
+mobile/.packages
+mobile/pubspec.lock
+
+# Environnements Node.js (si utilisé)
+node_modules/
+npm-debug.log*
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Logs et backups
+logs/
+*.log
+/var/backups/
+backup_*.sql.gz
+
+# Docker
+docker-compose.override.yml
+.docker/
+
+# Credentials et secrets
+backend/.env
+**/.env.local
+**/.env.prod
+*.pem
+*.key
+*.crt
+secrets/
+
+# Jenkins
+jenkins_home/
+**/jenkins_home/
+
+# PostgreSQL
+postgres_data/
+
+# Nginx SSL (dev)
+nginx/ssl/*.pem
+nginx/ssl/*.key
+
+# IDE specific
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Test outputs
+test-results/
+coverage/
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# Android
+mobile/android/.gradle/
+mobile/android/.idea/
+mobile/android/build/
+mobile/android/captures/
+mobile/android/local.properties
+mobile/android/**/output.json
+
+# iOS
+mobile/ios/.xcworkspace/
+mobile/ios/Pods/
+mobile/ios/Runner.ipa
+
+# Misc
+*.pyc
+__pycache__/
+.python-version

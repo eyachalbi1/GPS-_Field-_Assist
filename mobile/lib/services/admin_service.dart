@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import '../utils/config.dart';
+import '../utils/cache_store.dart';
 
 class AdminService {
   static String get _base => Config.baseUrl;
@@ -16,14 +17,24 @@ class AdminService {
   }
 
   static Future<List<Map<String, dynamic>>> getTechnicians() async {
-    final h = await _headers();
-    final r = await http.get(Uri.parse('$_base/api/admin/technicians'), headers: h)
-        .timeout(const Duration(seconds: 10));
-    if (r.statusCode == 200) {
-      return List<Map<String, dynamic>>.from(jsonDecode(r.body)['technicians']);
+    const key = 'admin_technicians';
+    try {
+      final h = await _headers();
+      final r = await http.get(Uri.parse('$_base/api/admin/technicians'), headers: h)
+          .timeout(const Duration(seconds: 10));
+      if (r.statusCode == 200) {
+        final list = List<Map<String, dynamic>>.from(jsonDecode(r.body)['technicians']);
+        await CacheStore.set(key, list);
+        return list;
+      }
+      if (r.statusCode == 401) throw Exception('Session expirée, veuillez vous reconnecter');
+      throw Exception('Erreur ${r.statusCode}');
+    } catch (e) {
+      if (e.toString().contains('Session')) rethrow;
+      final cached = await CacheStore.get<List>(key);
+      if (cached != null) return cached.map((e) => Map<String, dynamic>.from(e)).toList();
+      rethrow;
     }
-    if (r.statusCode == 401) throw Exception('Session expirée, veuillez vous reconnecter');
-    throw Exception('Erreur ${r.statusCode}');
   }
 
   static Future<void> createTechnician(String username, String password) async {
@@ -65,6 +76,7 @@ class AdminService {
   /// Charge les tâches depuis l'API Odoo helpdesk.
   /// Filtre par assigned_to_id si fourni.
   static Future<List<Map<String, dynamic>>> getHelpdeskTasks({String? odooUserId}) async {
+    final key = 'helpdesk_tasks_${odooUserId ?? 'all'}';
     const helpdeskUrl = 'http://41.226.24.13:5000/api/helpdesk/tasks';
     try {
       final r = await http
@@ -72,45 +84,90 @@ class AdminService {
           .timeout(const Duration(seconds: 12));
       if (r.statusCode == 200) {
         final List<dynamic> all = jsonDecode(r.body);
-        final tasks = all
-            .map((j) => Map<String, dynamic>.from(j as Map))
-            .toList();
-        // Filtrer par assigned_to_id si fourni
-        if (odooUserId != null && odooUserId.isNotEmpty) {
-          final id = int.tryParse(odooUserId);
-          return tasks
-              .where((t) => t['assigned_to_id'] == id)
-              .toList();
-        }
-        return tasks;
+        final tasks = all.map((j) => Map<String, dynamic>.from(j as Map)).toList();
+        final filtered = (odooUserId != null && odooUserId.isNotEmpty)
+            ? tasks.where((t) {
+                final id = int.tryParse(odooUserId);
+                final tid = t['assigned_to_id'];
+                return tid != null && (tid == id || tid.toString() == odooUserId);
+              }).toList()
+            : tasks;
+        await CacheStore.set(key, filtered);
+        return filtered;
       }
     } catch (_) {}
+    // Fallback cache
+    final cached = await CacheStore.get<List>(key);
+    if (cached != null) return cached.map((e) => Map<String, dynamic>.from(e)).toList();
     return [];
   }
 
   static Future<Map<String, dynamic>> getDashboard() async {
-    final h = await _headers();
-    final r = await http
-        .get(Uri.parse('$_base/api/admin/dashboard'), headers: h)
-        .timeout(const Duration(seconds: 15));
-    if (r.statusCode == 200) return jsonDecode(r.body) as Map<String, dynamic>;
-    throw Exception('Erreur ${r.statusCode}');
+    const key = 'admin_dashboard';
+    try {
+      final h = await _headers();
+      final r = await http
+          .get(Uri.parse('$_base/api/admin/dashboard'), headers: h)
+          .timeout(const Duration(seconds: 15));
+      if (r.statusCode == 200) {
+        final data = jsonDecode(r.body) as Map<String, dynamic>;
+        await CacheStore.set(key, data);
+        return data;
+      }
+      throw Exception('Erreur ${r.statusCode}');
+    } catch (e) {
+      final cached = await CacheStore.get<Map>(key);
+      if (cached != null) return Map<String, dynamic>.from(cached);
+      rethrow;
+    }
   }
 
   static Future<Map<String, dynamic>> getTechnicianPerformance(int userId) async {
-    final h = await _headers();
-    final r = await http
-        .get(Uri.parse('$_base/api/admin/technicians/$userId/performance'), headers: h)
-        .timeout(const Duration(seconds: 15));
-    if (r.statusCode == 200) return jsonDecode(r.body) as Map<String, dynamic>;
-    throw Exception('Erreur ${r.statusCode}');
+    final key = 'perf_$userId';
+    try {
+      final h = await _headers();
+      final r = await http
+          .get(Uri.parse('$_base/api/admin/technicians/$userId/performance'), headers: h)
+          .timeout(const Duration(seconds: 15));
+      if (r.statusCode == 200) {
+        final data = jsonDecode(r.body) as Map<String, dynamic>;
+        await CacheStore.set(key, data);
+        return data;
+      }
+      throw Exception('Erreur ${r.statusCode}');
+    } catch (e) {
+      final cached = await CacheStore.get<Map>(key);
+      if (cached != null) return Map<String, dynamic>.from(cached);
+      rethrow;
+    }
   }
 
-  static Future<void> createTask(int userId, Map<String, String> task) async {
+  static Future<List<Map<String, dynamic>>> getActivityFeed() async {
+    const key = 'admin_activity_feed';
+    try {
+      final h = await _headers();
+      final r = await http
+          .get(Uri.parse('$_base/api/admin/activity-feed'), headers: h)
+          .timeout(const Duration(seconds: 10));
+      if (r.statusCode == 200) {
+        final list = List<Map<String, dynamic>>.from(jsonDecode(r.body));
+        await CacheStore.set(key, list);
+        return list;
+      }
+      throw Exception('Erreur ${r.statusCode}');
+    } catch (e) {
+      final cached = await CacheStore.get<List>(key);
+      if (cached != null) return cached.map((e) => Map<String, dynamic>.from(e)).toList();
+      return [];
+    }
+  }
+
+  static Future<Map<String, dynamic>> createTask(int userId, Map<String, dynamic> task) async {
     final h = await _headers();
     final r = await http.post(Uri.parse('$_base/api/admin/technicians/$userId/tasks'),
         headers: h, body: jsonEncode(task));
     if (r.statusCode != 200) throw Exception(jsonDecode(r.body)['detail'] ?? 'Erreur');
+    return Map<String, dynamic>.from(jsonDecode(r.body));
   }
 
   static Future<void> deleteTask(int userId, int taskId) async {
@@ -118,5 +175,25 @@ class AdminService {
     final r = await http.delete(
         Uri.parse('$_base/api/admin/technicians/$userId/tasks/$taskId'), headers: h);
     if (r.statusCode != 200) throw Exception('Erreur suppression tâche');
+  }
+
+  static Future<Map<String, dynamic>> getLiveInsights() async {
+    const key = 'admin_live_insights';
+    try {
+      final h = await _headers();
+      final r = await http
+          .get(Uri.parse('$_base/api/admin/live-insights'), headers: h)
+          .timeout(const Duration(seconds: 12));
+      if (r.statusCode == 200) {
+        final data = jsonDecode(r.body) as Map<String, dynamic>;
+        await CacheStore.set(key, data);
+        return data;
+      }
+      throw Exception('Erreur ${r.statusCode}');
+    } catch (e) {
+      final cached = await CacheStore.get<Map>(key);
+      if (cached != null) return Map<String, dynamic>.from(cached);
+      return {'anomalies': [], 'insights': [], 'recommendations': [], 'summary': {}};
+    }
   }
 }

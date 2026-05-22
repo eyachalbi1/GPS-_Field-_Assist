@@ -11,12 +11,13 @@ class LoginResponse(BaseModel):
     user: dict
 
 class TaskResponse(BaseModel):
-    id: str
-    reference: str
-    name: str
-    description: str
+    id:           str
+    subject:      str
+    description:  str
     partner_name: str
-    start_time: str
-    end_time: str
-    status: str
+    start_time:   str
+    end_time:     str
+    stage:        str
+    assigned_to:  Optional[str] = None
+    created_at:   Optional[str] = None
 

@@ -9,14 +9,14 @@ def authenticate_user(username: str, password: str):
     try:
         with get_db() as conn:
             with conn.cursor() as cursor:
-                cursor.execute("SELECT * FROM users WHERE username = %s", (username,))
+                cursor.execute("SELECT * FROM users WHERE assigned_to_name = %s", (username,))
                 user = cursor.fetchone()
-                
                 if user and verify_password(password, user["password"]):
                     return {
-                        "id": user["id"],
-                        "username": user["username"],
-                        "role": user["role"]
+                        "id":             user["id"],
+                        "username":       user["assigned_to_name"],
+                        "role":           user["role"],
+                        "assigned_to_id": user.get("assigned_to_id"),
                     }
         return None
     except Exception:

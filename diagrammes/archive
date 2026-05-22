@@ -1,0 +1,124 @@
+@startuml use_case_sprint1_final
+!theme plain
+skinparam shadowing false
+skinparam defaultTextAlignment center
+skinparam wrapWidth 150
+
+' === STYLE ===
+skinparam Rectangle {
+  BackgroundColor #F0F8FF
+  BorderColor #2C3E50
+  RoundCorner 12
+}
+skinparam Actor {
+  BackgroundColor #FFF9E6
+  BorderColor #D4A017
+  RoundCorner 6
+}
+skinparam UseCase {
+  BackgroundColor White
+  BorderColor #2980B9
+  RoundCorner 4
+  FontSize 9
+}
+skinparam Arrow {
+  Color #2C3E50
+  FontSize 8
+}
+
+title GPS Field Assist — Sprint 1\nCas d'Utilisation
+
+' === ACTEURS ===
+left to right direction
+actor "Technicien" as tech
+actor "Boîtier GPS" as gps
+actor "Opérateur" as op
+actor "Backend" as backend
+
+rectangle "Système GPS Field Assist" {
+
+  ' === CŒUR DIAGNOSTIC ===
+  package "🔧 DIAGNOSTIC" {
+    usecase "Workflow\nSéquentiel\n(7 étapes)" as UC1
+    note right
+      Profil ET8 :
+      1. *11*4# — IMEI
+      2. STATUS# — État
+      3. UTC# — Horloge
+      4. GPRSSET# — Réseau
+      5. HC — Heartbeat
+      6. PROTOCOL — Protocole
+      7. CORNER — Validation
+      Retry x3 | Timeout 60s | Cycle 28s
+    end note
+  }
+
+  ' === MODULES ===
+  package "⚙️ CONFIG" {
+    usecase "APN\n(3 op.)" as UC2
+  }
+  package "📍 LOCALISATION" {
+    usecase "Position GPS" as UC3
+  }
+  package "⬆️ FIRMWARE" {
+    usecase "Mise à jour" as UC4
+  }
+  package "📊 STATS" {
+    usecase "Statistiques" as UC5
+  }
+  package "📲 SMS" {
+    usecase "Commandes" as UC6
+    usecase "Parser" as UC7
+    usecase "Historique" as UC8
+  }
+  package "💾 DONNÉES" {
+    usecase "Paramètres" as UC9
+    usecase "Rotation" as UC10
+  }
+}
+
+' === RELATIONS ===
+tech --> UC1
+tech --> UC2
+tech --> UC3
+tech --> UC4
+tech --> UC5
+tech --> UC6
+
+backend ..> UC9 : "<<include>>"
+op ..> UC6 : "<<include>>"
+op ..> UC7 : "<<include>>"
+gps ..> UC1 : "<<extend>>"
+gps ..> UC2 : "<<extend>>"
+gps ..> UC3 : "<<extend>>"
+gps ..> UC4 : "<<extend>>"
+
+' === INCLUSIONS ===
+UC1 ..> UC6 : "<<include>>"
+UC1 ..> UC7 : "<<include>>"
+UC1 ..> UC8 : "<<include>>"
+UC2 ..> UC6 : "<<include>>"
+UC3 ..> UC6 : "<<include>>"
+UC4 ..> UC6 : "<<include>>"
+UC6 ..> UC7 : "<<include>>"
+UC7 ..> UC8 : "<<include>>"
+UC9 ..> UC10 : "<<include>>"
+
+' === NOTE COMMANDES ===
+note bottom of UC6
+  <b>Commandes SMS (20+)</b>
+  <b>Diagnostic :</b> *11*4#, STATUS#, UTC#, UTC,0#, GPRSSET#, PROTOCOL,3,1#, HC,60,7200,7200#, CORNER,20#, RESET#, CLR,BLIND#, SLEEP,0#, LINE,4,1#
+  <b>Localisation :</b> *11*3#, &&IMEI,Y01, LAC#
+  <b>Firmware :</b> AT+GTUPD, AT+GTUDLD, AT+GTURST
+  <b>APN :</b> APN,internet.tn# (T), APN,apn.tunav.tn# (O), APN,m2m.tunav.com,tunav,tunav# (Oo)
+  <b>Utilitaires :</b> encode, SMS#, IP...
+end note
+
+legend right
+  Légende :
+  ----> Direct
+  -.->> Include
+  -.->> Extend
+endlegend
+
+@enduml

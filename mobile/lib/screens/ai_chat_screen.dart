@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/ai_service.dart';
 import '../utils/app_theme.dart';
-import '../main.dart';
 
 class _Message {
   final String text;
@@ -12,15 +11,16 @@ class _Message {
   _Message({required this.text, required this.isUser, this.sources = const []});
 
   Map<String, dynamic> toJson() => {
-    'text': text, 'isUser': isUser,
-    'sources': sources,
-  };
+        'text': text,
+        'isUser': isUser,
+        'sources': sources,
+      };
 
   factory _Message.fromJson(Map<String, dynamic> j) => _Message(
-    text: j['text'] as String,
-    isUser: j['isUser'] as bool,
-    sources: (j['sources'] as List?) ?? [],
-  );
+        text: j['text'] as String,
+        isUser: j['isUser'] as bool,
+        sources: (j['sources'] as List?) ?? [],
+      );
 }
 
 class AiChatScreen extends StatefulWidget {
@@ -51,16 +51,17 @@ class _AiChatScreenState extends State<AiChatScreen> {
       try {
         final list = jsonDecode(raw) as List;
         setState(() {
-          _messages.addAll(list.map((e) => _Message.fromJson(e as Map<String, dynamic>)));
+          _messages.addAll(
+              list.map((e) => _Message.fromJson(e as Map<String, dynamic>)));
         });
         WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBottom());
         return;
       } catch (_) {}
     }
-    // Première ouverture
     setState(() {
       _messages.add(_Message(
-        text: 'Bonjour ! Posez-moi une question sur les manuels GPS disponibles.',
+        text:
+            'Bonjour ! Posez-moi une question sur les manuels GPS disponibles.',
         isUser: false,
       ));
     });
@@ -68,8 +69,8 @@ class _AiChatScreenState extends State<AiChatScreen> {
 
   Future<void> _saveHistory() async {
     final prefs = await SharedPreferences.getInstance();
-    final json = jsonEncode(_messages.map((m) => m.toJson()).toList());
-    await prefs.setString(_prefsKey, json);
+    await prefs.setString(
+        _prefsKey, jsonEncode(_messages.map((m) => m.toJson()).toList()));
   }
 
   Future<void> _clearHistory() async {
@@ -78,7 +79,8 @@ class _AiChatScreenState extends State<AiChatScreen> {
     setState(() {
       _messages.clear();
       _messages.add(_Message(
-        text: 'Bonjour ! Posez-moi une question sur les manuels GPS disponibles.',
+        text:
+            'Bonjour ! Posez-moi une question sur les manuels GPS disponibles.',
         isUser: false,
       ));
     });
@@ -135,19 +137,17 @@ class _AiChatScreenState extends State<AiChatScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = false;
     return Scaffold(
-      backgroundColor: AppTheme.bg(isDark),
+      backgroundColor: AppTheme.bg(false),
       appBar: AppBar(
-        title: const Row(
+        title: Row(
           children: [
-            CircleAvatar(
-              radius: 16,
-              backgroundImage: AssetImage('assets/ICON_CHATBOT.png'),
-              backgroundColor: Colors.transparent,
+            ClipOval(
+              child: Image.asset('assets/icone.gif',
+                  width: 42, height: 42, fit: BoxFit.cover),
             ),
-            SizedBox(width: 8),
-            Text('Assistant PDF'),
+            const SizedBox(width: 8),
+            const Text('Assistant PDF'),
           ],
         ),
         actions: [
@@ -159,13 +159,23 @@ class _AiChatScreenState extends State<AiChatScreen> {
                 context: context,
                 builder: (ctx) => AlertDialog(
                   backgroundColor: AppTheme.card(false),
-                  title: const Text('Effacer', style: TextStyle(color: Colors.white)),
-                  content: const Text('Supprimer toute la conversation ?', style: TextStyle(color: AppTheme.c2)),
+                  title: const Text('Effacer',
+                      style: TextStyle(color: Colors.white)),
+                  content: const Text('Supprimer toute la conversation ?',
+                      style: TextStyle(color: AppTheme.c2)),
                   actions: [
-                    TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text('Annuler', style: TextStyle(color: AppTheme.c2.withOpacity(0.7)))),
-                    ElevatedButton(onPressed: () => Navigator.pop(ctx, true),
-                        style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-                        child: const Text('Effacer')),
+                    TextButton(
+                      onPressed: () => Navigator.pop(ctx, false),
+                      child: Text('Annuler',
+                          style: TextStyle(
+                              color: AppTheme.c2.withValues(alpha: 0.7))),
+                    ),
+                    ElevatedButton(
+                      onPressed: () => Navigator.pop(ctx, true),
+                      style:
+                          ElevatedButton.styleFrom(backgroundColor: Colors.red),
+                      child: const Text('Effacer'),
+                    ),
                   ],
                 ),
               );
@@ -181,9 +191,11 @@ class _AiChatScreenState extends State<AiChatScreen> {
               );
               final ok = await AiService.reindex();
               if (!mounted) return;
+              // ignore: use_build_context_synchronously
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
-                  content: Text(ok ? 'Index mis à jour ✓' : 'Échec de la réindexation'),
+                  content: Text(
+                      ok ? 'Index mis à jour ✓' : 'Échec de la réindexation'),
                   backgroundColor: ok ? Colors.green : Colors.red,
                 ),
               );
@@ -218,28 +230,29 @@ class _AiChatScreenState extends State<AiChatScreen> {
       alignment: msg.isUser ? Alignment.centerRight : Alignment.centerLeft,
       child: Container(
         margin: const EdgeInsets.only(bottom: 12),
-        constraints: BoxConstraints(
-          maxWidth: MediaQuery.of(context).size.width * 0.78,
-        ),
+        constraints:
+            BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.78),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.end,
-          mainAxisAlignment: msg.isUser ? MainAxisAlignment.end : MainAxisAlignment.start,
+          mainAxisAlignment:
+              msg.isUser ? MainAxisAlignment.end : MainAxisAlignment.start,
           children: [
             if (!msg.isUser) ...[
-              const CircleAvatar(
-                radius: 16,
-                backgroundImage: AssetImage('assets/ICON_CHATBOT.png'),
-                backgroundColor: Colors.transparent,
+              ClipOval(
+                child: Image.asset('assets/icone.gif',
+                    width: 42, height: 42, fit: BoxFit.cover),
               ),
               const SizedBox(width: 6),
             ],
             Flexible(
               child: Column(
-                crossAxisAlignment:
-                    msg.isUser ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+                crossAxisAlignment: msg.isUser
+                    ? CrossAxisAlignment.end
+                    : CrossAxisAlignment.start,
                 children: [
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 16, vertical: 12),
                     decoration: BoxDecoration(
                       color: msg.isUser
                           ? const Color(0xFF0066FF)
@@ -253,7 +266,8 @@ class _AiChatScreenState extends State<AiChatScreen> {
                     ),
                     child: Text(
                       msg.text,
-                      style: TextStyle(color: AppTheme.c1, fontSize: 14, height: 1.4),
+                      style: const TextStyle(
+                          color: AppTheme.c1, fontSize: 14, height: 1.4),
                     ),
                   ),
                   if (msg.sources.isNotEmpty) ...[
@@ -262,15 +276,18 @@ class _AiChatScreenState extends State<AiChatScreen> {
                       spacing: 6,
                       children: msg.sources.map((s) {
                         final src = s as Map<String, dynamic>;
-                        final name = (src['filename'] as String)
-                            .replaceAll(RegExp(r'\.pdf$', caseSensitive: false), '');
-                        final score = ((src['score'] as num) * 100).toStringAsFixed(0);
+                        final name = (src['filename'] as String).replaceAll(
+                            RegExp(r'\.pdf$', caseSensitive: false), '');
+                        final score =
+                            ((src['score'] as num) * 100).toStringAsFixed(0);
                         return Chip(
                           label: Text('$name · $score%',
-                              style: const TextStyle(fontSize: 10, color: AppTheme.c2)),
+                              style: const TextStyle(
+                                  fontSize: 10, color: AppTheme.c2)),
                           backgroundColor: Colors.transparent,
                           padding: EdgeInsets.zero,
-                          materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          materialTapTargetSize:
+                              MaterialTapTargetSize.shrinkWrap,
                         );
                       }).toList(),
                     ),
@@ -311,21 +328,21 @@ class _AiChatScreenState extends State<AiChatScreen> {
   }
 
   Widget _buildInput() {
-    final isDark = false;
     final bottomPadding = MediaQuery.of(context).padding.bottom;
     return Container(
       padding: EdgeInsets.fromLTRB(12, 8, 12, 12 + bottomPadding),
-      color: AppTheme.bg(isDark),
+      color: AppTheme.bg(false),
       child: Row(
         children: [
           Expanded(
             child: TextField(
               controller: _controller,
-              style: TextStyle(color: AppTheme.text(isDark)),
+              style: TextStyle(color: AppTheme.text(false)),
               onSubmitted: (_) => _send(),
               decoration: InputDecoration(
                 hintText: 'Posez une question sur les manuels...',
-                hintStyle: TextStyle(color: Colors.white.withOpacity(0.4)),
+                hintStyle:
+                    TextStyle(color: Colors.white.withValues(alpha: 0.4)),
                 filled: true,
                 fillColor: const Color(0xFF1E2E3E),
                 contentPadding:
@@ -353,7 +370,7 @@ class _AiChatScreenState extends State<AiChatScreen> {
                       child: CircularProgressIndicator(
                           strokeWidth: 2, color: Colors.white),
                     )
-                  : Icon(Icons.send, color: AppTheme.c1, size: 20),
+                  : const Icon(Icons.send, color: AppTheme.c1, size: 20),
             ),
           ),
         ],
@@ -399,10 +416,8 @@ class _DotState extends State<_Dot> with SingleTickerProviderStateMixin {
   Widget build(BuildContext context) {
     return FadeTransition(
       opacity: _anim,
-      child: CircleAvatar(radius: 4, backgroundColor: AppTheme.c2.withOpacity(0.7)),
+      child: CircleAvatar(
+          radius: 4, backgroundColor: AppTheme.c2.withValues(alpha: 0.7)),
     );
   }
 }
-
-
-

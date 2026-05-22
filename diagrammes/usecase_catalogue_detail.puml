@@ -1,0 +1,16 @@
+@startuml Sprint3 Catalogue Detail
+!theme plain
+skinparam backgroundColor white
+actor "Technicien" as Tech
+rectangle "AssetsScreen" {
+  usecase "Grid recherche nom" as UC1
+  usecase "Thumbnail device match (ET7->asset)" as UC2
+  usecase "Cache status icon" as UC3
+  usecase "Open PDF dialog" as UC4
+}
+Tech --> UC1 : searchController
+Tech --> UC2 : _resolveLocalAsset()
+UC2 ..> UC3 : SharedPreferences
+UC4 --> "PDFService" : getPdfBytes()
+@enduml
+

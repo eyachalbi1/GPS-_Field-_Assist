@@ -14,30 +14,49 @@ class PositionMapScreen extends StatefulWidget {
     required this.rawSms,
   });
 
-  /// Extrait lat/lng depuis n'importe quel format de réponse SMS *11*3#
+  /// Convertit DDMM.MMMM → degrés décimaux
+  static double _dmToDecimal(String raw) {
+    final val = double.parse(raw);
+    final deg = (val / 100).truncate();
+    final min = val - deg * 100;
+    return deg + min / 60;
+  }
+
+  /// Extrait lat/lng depuis n'importe quel format de réponse SMS
   static ({double lat, double lng})? extractCoords(String sms) {
-    // Format exact EasyTraceX: ?q=N34.74075,E010.70366
+    // ── Format EasyTrace VII : N3650.2041E01012.1872 (DDMM.MMMM collé) ──
+    // Latitude  : N + 4 chiffres + . + chiffres  (ex: N3650.2041)
+    // Longitude : E + 5 chiffres + . + chiffres  (ex: E01012.1872)
+    final et7 = RegExp(r'[Nn](\d{4}\.\d+)[Ee](\d{5}\.\d+)');
+    var m = et7.firstMatch(sms);
+    if (m != null) {
+      return (
+        lat: _dmToDecimal(m.group(1)!),
+        lng: _dmToDecimal(m.group(2)!),
+      );
+    }
+
+    // ── Format EasyTraceX : ?q=N34.74075,E010.70366 (déjà décimal) ──
     final neFmt = RegExp(r'[?&]q=[Nn](-?\d{1,3}\.\d+),[Ee](\d{1,3}\.\d+)');
-    var m = neFmt.firstMatch(sms);
+    m = neFmt.firstMatch(sms);
     if (m != null) {
       return (lat: double.parse(m.group(1)!), lng: double.parse(m.group(2)!));
     }
 
-    // Bare N/E without ?q=
+    // ── Bare N/E décimal ──
     final neBare = RegExp(r'[Nn](-?\d{1,3}\.\d+)[,\s]+[Ee](\d{1,3}\.\d+)');
     m = neBare.firstMatch(sms);
     if (m != null) {
       return (lat: double.parse(m.group(1)!), lng: double.parse(m.group(2)!));
     }
 
-    final patterns = [
+    // ── Fallback : coordonnées décimales brutes ──
+    for (final reg in [
       RegExp(r'[?&]q=(-?\d{1,3}\.\d+),(-?\d{1,3}\.\d+)'),
       RegExp(r'@(-?\d{1,3}\.\d+),(-?\d{1,3}\.\d+)'),
       RegExp(r'll=(-?\d{1,3}\.\d+),(-?\d{1,3}\.\d+)'),
       RegExp(r'(-?\d{1,3}\.\d{4,})[,\s]+(-?\d{1,3}\.\d{4,})'),
-      RegExp(r'(-?\d{1,3}\.\d+)[,\s]+(-?\d{1,3}\.\d+)'),
-    ];
-    for (final reg in patterns) {
+    ]) {
       m = reg.firstMatch(sms);
       if (m != null) {
         try {

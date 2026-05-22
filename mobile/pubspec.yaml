@@ -10,7 +10,7 @@ dependencies:
   flutter:
     sdk: flutter
   http: ^1.1.0
-  image_picker: ^1.0.4
+  image_picker: ^1.2.1
   shared_preferences: ^2.2.2
   url_launcher: ^6.2.2
   telephony:
@@ -30,7 +30,7 @@ flutter_launcher_icons:
   android: true
   ios: true
   remove_alpha_ios: true
-  image_path: "assets/icon/logo.jpeg"
+  image_path: "assets/icon/logo.png"
 flutter:
   uses-material-design: true
   
@@ -43,9 +43,12 @@ flutter:
     - assets/logo_telecom.png
     - assets/MT02S-200.jpg
     - assets/ICON_CHATBOT.png
+    - assets/icone.gif
     - assets/ET7.jpeg
     - assets/FM4200_v1.92.jpeg
     - assets/FM5300_ v3.4.jpeg
     - assets/FMA120_v1.17.jpeg
     - assets/GT06N.jpeg
     - assets/GT06N_autre.jpeg
+    - assets/gv300can-gps.jpg.jpeg
+    - assets/icon/

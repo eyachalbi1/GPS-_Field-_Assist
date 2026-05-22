@@ -11,29 +11,33 @@ class GpsDevice {
   final String? simCardNumber;
   final String equipmentType;
   final String? passwordDevice;
+  final int equipmentStatus; // 0=FW check, 1=Config needed, 2=OK, 3=Diagnostic, 4=Manual
 
   GpsDevice({
     required this.serialNumber,
     this.simCardNumber,
     required this.equipmentType,
     this.passwordDevice,
+    this.equipmentStatus = 2,
   });
 
   factory GpsDevice.fromJson(Map<String, dynamic> json) {
     return GpsDevice(
-      serialNumber: json['SerialNumber']?.toString() ?? '',
-      simCardNumber: json['SIMCardNumber']?.toString(),
-      equipmentType: json['EquipmentType']?.toString() ?? '',
-      passwordDevice: json['PasswordDevice']?.toString(),
+      serialNumber:    json['SerialNumber']?.toString() ?? '',
+      simCardNumber:   json['SIMCardNumber']?.toString(),
+      equipmentType:   json['EquipmentType']?.toString() ?? '',
+      passwordDevice:  json['PasswordDevice']?.toString(),
+      equipmentStatus: (json['EquipmentStatus'] as num?)?.toInt() ?? 2,
     );
   }
 
-  Map<String, String?> toMap() {
+  Map<String, dynamic> toMap() {
     return {
-      'SerialNumber': serialNumber,
-      'SIMCardNumber': simCardNumber,
-      'EquipmentType': equipmentType,
-      'PasswordDevice': passwordDevice,
+      'SerialNumber':    serialNumber,
+      'SIMCardNumber':   simCardNumber,
+      'EquipmentType':   equipmentType,
+      'PasswordDevice':  passwordDevice,
+      'EquipmentStatus': equipmentStatus,
     };
   }
 }
@@ -56,7 +60,7 @@ class GpsApiConnectionInfo {
 }
 
 class GpsDeviceService {
-  static String get _apiUrl => '${Config.apiBaseUrl}/api/gps-devices';
+  static String get _apiUrl => '${Config.apiBaseUrl}/api/gps-devices';  // 41.226.24.13:5000
 
   static String? _lastEtag;
   static List<GpsDevice> _lastDevices = [];
@@ -149,4 +153,15 @@ class GpsDeviceService {
 
   /// Get last cached devices immediately
   static List<GpsDevice> getCachedDevices() => List.unmodifiable(_lastDevices);
+
+  /// Update device status via API: GET /api/gps-devices/{imei}/{newStatus}
+  static Future<bool> updateStatus(String imei, int newStatus) async {
+    try {
+      final url = '${Config.apiBaseUrl}/api/gps-devices/$imei/$newStatus';
+      final r = await http.get(Uri.parse(url)).timeout(const Duration(seconds: 10));
+      return r.statusCode == 200;
+    } catch (_) {
+      return false;
+    }
+  }
 }

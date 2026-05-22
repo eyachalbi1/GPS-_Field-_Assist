@@ -1,5 +1,6 @@
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../utils/app_theme.dart';
 import 'package:syncfusion_flutter_pdfviewer/pdfviewer.dart';
 import '../services/pdf_service.dart';
@@ -22,6 +23,10 @@ class _PdfMemoryViewerScreenState extends State<PdfMemoryViewerScreen> {
   Uint8List? pdfBytes;
   bool isLoading = true;
   String? error;
+  final PdfViewerController _pdfController = PdfViewerController();
+  final TextEditingController _pageController = TextEditingController();
+  int _totalPages = 0;
+  int _currentPage = 1;
 
   @override
   void initState() {
@@ -103,7 +108,72 @@ class _PdfMemoryViewerScreenState extends State<PdfMemoryViewerScreen> {
       );
     }
 
-    return SfPdfViewer.memory(pdfBytes!);
+    return Column(
+      children: [
+        Container(
+          color: Colors.blue.withValues(alpha: 0.45),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Text('Page', style: TextStyle(color: Colors.white, fontSize: 13)),
+              const SizedBox(width: 8),
+              SizedBox(
+                width: 52,
+                height: 32,
+                child: TextField(
+                  controller: _pageController,
+                  keyboardType: TextInputType.number,
+                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(color: Colors.white, fontSize: 13),
+                  decoration: InputDecoration(
+                    isDense: true,
+                    contentPadding: const EdgeInsets.symmetric(vertical: 6),
+                    filled: true,
+                    fillColor: Colors.white.withValues(alpha: 0.2),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(6),
+                      borderSide: BorderSide.none,
+                    ),
+                  ),
+                  onSubmitted: (v) {
+                    final p = int.tryParse(v);
+                    if (p != null && p >= 1 && p <= _totalPages) {
+                      _pdfController.jumpToPage(p);
+                    }
+                  },
+                ),
+              ),
+              const SizedBox(width: 8),
+              Text('/ $_totalPages', style: const TextStyle(color: Colors.white, fontSize: 13)),
+            ],
+          ),
+        ),
+        Expanded(
+          child: SfPdfViewer.memory(
+            pdfBytes!,
+            controller: _pdfController,
+            canShowScrollHead: false,
+            canShowScrollStatus: false,
+            canShowPaginationDialog: false,
+            onDocumentLoaded: (details) {
+              setState(() {
+                _totalPages = details.document.pages.count;
+                _currentPage = 1;
+                _pageController.text = '1';
+              });
+            },
+            onPageChanged: (details) {
+              setState(() {
+                _currentPage = details.newPageNumber;
+                _pageController.text = '$_currentPage';
+              });
+            },
+          ),
+        ),
+      ],
+    );
   }
 }
 

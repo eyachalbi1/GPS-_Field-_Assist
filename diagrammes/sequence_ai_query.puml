@@ -1,0 +1,24 @@
+@startuml Sprint3 Sequence AI Query
+actor Tech
+participant "AI ChatScreen" 
+participant Backend
+participant "pdf_ai_service"
+participant Groq
+
+Tech -> AI ChatScreen : "ET7 batterie faible?"
+AI ChatScreen -> Backend : POST /ai/pdf-search "ET7 batterie faible"
+Backend -> pdf_ai_service : search(question)
+pdf_ai_service -> pdf_ai_service : _ensure_index() 
+pdf_ai_service -> pdf_ai_service : TfidfVectorizer cosine_sim
+alt hits >0.03
+  pdf_ai_service --> Backend : hits[page/text/score]
+  Backend -> pdf_ai_service : answer()
+  pdf_ai_service -> Groq : chat.completions llama-3.3
+  Groq --> pdf_ai_service : "Réponse précise français"
+else no hits
+  pdf_ai_service --> Backend : "Aucune info trouvée"
+end
+Backend --> AI ChatScreen : {answer, sources}
+AI ChatScreen --> Tech : Affichage + sources PDF
+@enduml
+

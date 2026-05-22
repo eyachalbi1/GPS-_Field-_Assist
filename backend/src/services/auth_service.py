@@ -49,7 +49,7 @@ def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(securit
     with get_db() as conn:
         with conn.cursor() as cursor:
             cursor.execute("""
-                SELECT id, username, role FROM users WHERE id = %s
+                SELECT id, assigned_to_name, role FROM users WHERE id = %s
             """, (payload.get("user_id"),))
             user = cursor.fetchone()
 
@@ -60,4 +60,4 @@ def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(securit
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    return dict(user)
+    return {"id": user["id"], "username": user["assigned_to_name"], "role": user["role"]}

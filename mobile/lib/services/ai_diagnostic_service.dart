@@ -15,7 +15,8 @@ class AiDiagnosticService {
           .post(
             Uri.parse('$_base/api/ai/recommendations'),
             headers: {'Content-Type': 'application/json'},
-            body: jsonEncode({'equipment_type': equipmentType, 'symptom': symptom}),
+            body: jsonEncode(
+                {'equipment_type': equipmentType, 'symptom': symptom}),
           )
           .timeout(const Duration(seconds: 15));
       if (res.statusCode == 200) return jsonDecode(res.body);
@@ -52,6 +53,19 @@ class AiDiagnosticService {
       if (res.statusCode == 200) return jsonDecode(res.body);
     } catch (e) {
       debugPrint('AiDiagnosticService.predictive error: $e');
+    }
+    return null;
+  }
+
+  static Future<Map<String, dynamic>?> getTaskPredictions(String token) async {
+    try {
+      final res = await http.get(
+        Uri.parse('$_base/api/tasks/workload-prediction'),
+        headers: {'Authorization': 'Bearer $token'},
+      ).timeout(const Duration(seconds: 15));
+      if (res.statusCode == 200) return jsonDecode(res.body);
+    } catch (e) {
+      debugPrint('AiDiagnosticService.getTaskPredictions error: $e');
     }
     return null;
   }

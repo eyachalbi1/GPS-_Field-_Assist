@@ -22,6 +22,7 @@ _matrix = None
 _groq_client: Groq | None = None
 _index_lock = threading.Lock()
 _indexed = False
+_api_reachable: bool | None = None  # None = untested
 
 
 def _get_groq() -> Groq | None:
@@ -72,20 +73,34 @@ def _extract_pdf_bytes(pdf_bytes: bytes, filename: str) -> list[dict]:
     return chunks
 
 
-def _fetch_pdf_list() -> list[str]:
+def _check_api_reachable() -> bool:
+    global _api_reachable
+    if _api_reachable is not None:
+        return _api_reachable
     try:
-        r = requests.get(f"{API_BASE}/api/files", timeout=15)
-        if r.status_code == 200:
-            data = r.json()
-            # L'API retourne {"files": ["nom.pdf", ...]}
-            raw = data if isinstance(data, list) else data.get("files", [])
-            return [
-                (f["filename"] if isinstance(f, dict) else str(f))
-                for f in raw
-                if (f["filename"] if isinstance(f, dict) else str(f)).lower().endswith(".pdf")
-            ]
-    except Exception as e:
-        print(f"[pdf_ai] fetch list error: {e}")
+        requests.get(f"{API_BASE}/api/files", timeout=5)
+        _api_reachable = True
+    except Exception:
+        _api_reachable = False
+    return _api_reachable
+
+
+def _fetch_pdf_list() -> list[str]:
+    if _check_api_reachable():
+        try:
+            r = requests.get(f"{API_BASE}/api/files", timeout=15)
+            if r.status_code == 200:
+                data = r.json()
+                raw = data if isinstance(data, list) else data.get("files", [])
+                return [
+                    (f["filename"] if isinstance(f, dict) else str(f))
+                    for f in raw
+                    if (f["filename"] if isinstance(f, dict) else str(f)).lower().endswith(".pdf")
+                ]
+        except Exception as e:
+            print(f"[pdf_ai] fetch list error: {e}")
+    else:
+        print(f"[pdf_ai] API unreachable, using local PDFs from {MODULES_DIR}")
     if os.path.exists(MODULES_DIR):
         return [f for f in os.listdir(MODULES_DIR) if f.lower().endswith(".pdf")]
     return []
@@ -101,6 +116,14 @@ def _fetch_pdf_bytes(filename: str) -> bytes | None:
         with open(cache_path, 'rb') as f:
             print(f"[pdf_ai] cache hit: {filename}")
             return f.read()
+
+    # Try local first if API is known unreachable
+    local = os.path.join(MODULES_DIR, filename)
+    if not _check_api_reachable():
+        if os.path.exists(local):
+            with open(local, 'rb') as f:
+                return f.read()
+        return None
 
     from urllib.parse import quote
     encoded = quote(filename)
@@ -118,8 +141,6 @@ def _fetch_pdf_bytes(filename: str) -> bytes | None:
                 return r.content
         except Exception as e:
             print(f"[pdf_ai] error {url}: {e}")
-    # fallback local
-    local = os.path.join(MODULES_DIR, filename)
     if os.path.exists(local):
         with open(local, 'rb') as f:
             return f.read()

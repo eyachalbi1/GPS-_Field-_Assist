@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import '../services/pdf_service.dart';
 import '../utils/app_theme.dart';
-import '../main.dart';
 import 'pdf_memory_viewer_screen.dart';
 import 'ai_chat_screen.dart';
 
@@ -33,20 +32,27 @@ class _AssetsScreenState extends State<AssetsScreen> {
   }
 
   Future<void> _loadModules() async {
-    setState(() { _loading = true; _error = null; });
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
 
     final list = await PdfService.fetchPdfList();
     if (!mounted) return;
 
-    final modules = list.map<Map<String, dynamic>>((item) {
-      final filename = item['filename'] ?? '';
-      return {
-        'filename': filename,
-        'name': filename.replaceAll(RegExp(r'\.pdf$', caseSensitive: false), ''),
-        'imageUrl': '',
-        'description': '',
-      };
-    }).where((e) => (e['filename'] as String).isNotEmpty).toList();
+    final modules = list
+        .map<Map<String, dynamic>>((item) {
+          final filename = item['filename'] ?? '';
+          return {
+            'filename': filename,
+            'name': filename.replaceAll(
+                RegExp(r'\.pdf$', caseSensitive: false), ''),
+            'imageUrl': '',
+            'description': '',
+          };
+        })
+        .where((e) => (e['filename'] as String).isNotEmpty)
+        .toList();
 
     setState(() {
       _allModules = modules;
@@ -81,36 +87,80 @@ class _AssetsScreenState extends State<AssetsScreen> {
   @override
   Widget build(BuildContext context) {
     final isDark = false;
-    return Stack(
+    return Column(
       children: [
+        // ── AppBar avec chatbot à gauche ──
         Container(
-          margin: const EdgeInsets.all(16),
-          decoration: AppTheme.cardBlue(radius: 24),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          color: AppTheme.darkTopbar.withOpacity(0.6),
+          child: Row(
+            children: [
+              GestureDetector(
+                onTap: () => Navigator.push(context,
+                    MaterialPageRoute(builder: (_) => const AiChatScreen())),
+                child: Container(
+                  width: 48,
+                  height: 48,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: AppTheme.skyBottom.withOpacity(0.85),
+                    border: Border.all(
+                        color: AppTheme.skyLight.withOpacity(0.5), width: 1.5),
+                  ),
+                  child: ClipOval(
+                    child: Image.asset(
+                      'assets/icone.gif',
+                      width: 48,
+                      height: 48,
+                      fit: BoxFit.cover,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              const Text('Documentation',
+                  style: TextStyle(
+                      color: AppTheme.c1,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600)),
+            ],
+          ),
+        ),
+        // ── Contenu ──
+        Expanded(
           child: Column(
             children: [
               Padding(
-                padding: const EdgeInsets.all(16),
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: AppTheme.skyTop.withOpacity(0.4),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: AppTheme.skyBottom.withOpacity(0.35), width: 1),
-                  ),
-                  child: TextField(
-                    controller: _searchController,
-                    onChanged: _filter,
-                    style: TextStyle(color: Colors.white.withOpacity(0.9)),
-                    decoration: InputDecoration(
-                      hintText: 'Rechercher un module...',
-                      hintStyle: TextStyle(color: AppTheme.c2.withOpacity(0.6)),
-                      prefixIcon: Icon(Icons.search, color: AppTheme.c2),
-                      suffixIcon: IconButton(
-                        icon: Icon(Icons.refresh, color: AppTheme.c2),
-                        onPressed: _loadModules,
-                      ),
-                      border: InputBorder.none,
-                      contentPadding: const EdgeInsets.symmetric(vertical: 14),
+                padding: const EdgeInsets.fromLTRB(8, 8, 8, 0),
+                child: TextField(
+                  controller: _searchController,
+                  onChanged: _filter,
+                  style: TextStyle(color: Colors.white.withOpacity(0.9)),
+                  decoration: InputDecoration(
+                    hintText: 'Rechercher un module...',
+                    hintStyle: TextStyle(color: AppTheme.c2.withOpacity(0.6)),
+                    prefixIcon: Icon(Icons.search, color: AppTheme.c2),
+                    suffixIcon: IconButton(
+                      icon: Icon(Icons.refresh, color: AppTheme.c2),
+                      onPressed: _loadModules,
                     ),
+                    filled: true,
+                    fillColor: AppTheme.skyTop.withOpacity(0.4),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(30),
+                      borderSide: BorderSide.none,
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(30),
+                      borderSide: BorderSide.none,
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(30),
+                      borderSide: BorderSide(
+                          color: AppTheme.skyLight.withOpacity(0.5),
+                          width: 1.5),
+                    ),
+                    contentPadding: const EdgeInsets.symmetric(vertical: 14),
                   ),
                 ),
               ),
@@ -118,50 +168,45 @@ class _AssetsScreenState extends State<AssetsScreen> {
             ],
           ),
         ),
-        // ── Bouton chatbot en haut à droite ──
-        Positioned(
-          top: 24,
-          right: 24,
-          child: GestureDetector(
-            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AiChatScreen())),
-            child: Container(
-              width: 44, height: 44,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: AppTheme.skyBottom.withOpacity(0.85),
-                border: Border.all(color: AppTheme.skyLight.withOpacity(0.5), width: 1.5),
-                boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.25), blurRadius: 6, offset: const Offset(0, 3))],
-              ),
-              child: const Icon(Icons.smart_toy_outlined, color: Colors.white, size: 22),
-            ),
-          ),
-        ),
       ],
     );
   }
 
   Widget _buildBody(bool isDark) {
-    if (_loading) return Center(child: CircularProgressIndicator(color: AppTheme.text(isDark)));
+    if (_loading)
+      return Center(
+          child: CircularProgressIndicator(color: AppTheme.text(isDark)));
     if (_error != null) {
       return Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.cloud_off, size: 64, color: AppTheme.textSubColor(isDark)),
+            Icon(Icons.cloud_off,
+                size: 64, color: AppTheme.textSubColor(isDark)),
             const SizedBox(height: 12),
-            Text(_error!, style: TextStyle(color: AppTheme.textSubColor(isDark)), textAlign: TextAlign.center),
+            Text(_error!,
+                style: TextStyle(color: AppTheme.textSubColor(isDark)),
+                textAlign: TextAlign.center),
             const SizedBox(height: 16),
-            ElevatedButton(onPressed: _loadModules, child: const Text('Réessayer')),
+            ElevatedButton(
+                onPressed: _loadModules, child: const Text('Réessayer')),
           ],
         ),
       );
     }
-    if (_filtered.isEmpty) return Center(child: Text('Aucun module trouvé.', style: TextStyle(color: AppTheme.textSubColor(isDark))));
-    final cardAspectRatio = MediaQuery.of(context).size.width < 420 ? 0.72 : 0.8;
+    if (_filtered.isEmpty)
+      return Center(
+          child: Text('Aucun module trouvé.',
+              style: TextStyle(color: AppTheme.textSubColor(isDark))));
+    final cardAspectRatio =
+        MediaQuery.of(context).size.width < 420 ? 0.72 : 0.8;
     return GridView.builder(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.fromLTRB(8, 12, 8, 12),
       gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
-        maxCrossAxisExtent: 200, crossAxisSpacing: 12, mainAxisSpacing: 12, childAspectRatio: cardAspectRatio,
+        maxCrossAxisExtent: 160,
+        crossAxisSpacing: 8,
+        mainAxisSpacing: 8,
+        childAspectRatio: cardAspectRatio,
       ),
       itemCount: _filtered.length,
       itemBuilder: (context, index) {
@@ -169,21 +214,30 @@ class _AssetsScreenState extends State<AssetsScreen> {
         return GestureDetector(
           onTap: () => _showDetails(module),
           child: Container(
-            decoration: AppTheme.cardBlue(radius: 16),
+            decoration: BoxDecoration(
+              color: AppTheme.cardBlue(radius: 16).color,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                  color: AppTheme.skyBottom.withOpacity(0.45), width: 1.5),
+            ),
             child: LayoutBuilder(builder: (context, constraints) {
               final size = (constraints.maxWidth * 0.62).clamp(68.0, 100.0);
               return Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Container(
-                    width: size, height: size,
+                    width: size,
+                    height: size,
                     decoration: BoxDecoration(
                       color: AppTheme.surface(isDark).withOpacity(0.5),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: ClipRRect(
                       borderRadius: BorderRadius.circular(12),
-                      child: _ModuleImage(imageUrl: module['imageUrl'] as String, filename: module['filename'] as String, size: size),
+                      child: _ModuleImage(
+                          imageUrl: module['imageUrl'] as String,
+                          filename: module['filename'] as String,
+                          size: size),
                     ),
                   ),
                   const SizedBox(height: 8),
@@ -191,8 +245,13 @@ class _AssetsScreenState extends State<AssetsScreen> {
                     padding: const EdgeInsets.symmetric(horizontal: 8),
                     child: Text(
                       module['name'] as String,
-                      style: TextStyle(color: AppTheme.text(isDark), fontSize: 13, fontWeight: FontWeight.bold),
-                      textAlign: TextAlign.center, maxLines: 2, overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                          color: AppTheme.text(isDark),
+                          fontSize: 13,
+                          fontWeight: FontWeight.bold),
+                      textAlign: TextAlign.center,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ),
                 ],
@@ -212,19 +271,35 @@ class _ModuleImage extends StatelessWidget {
   final String filename;
   final double size;
 
-  const _ModuleImage({required this.imageUrl, required this.filename, required this.size});
+  const _ModuleImage(
+      {required this.imageUrl, required this.filename, required this.size});
 
   static String? _resolveLocalAsset(String filename) {
     final n = filename.toLowerCase();
-    if (n.contains('et7') || (n.contains('easytrace') && (n.contains('vii') || n.contains('7')))) return 'assets/ET7.jpeg';
-    if (n.contains('etx') || n.contains('easytracex') || n.contains('protocol')) return 'assets/MT02S-200.jpg';
-    if (n.contains('et8') || n.contains('easytrace8') || n.contains('easytraceviii')) return 'assets/MT02S-200.jpg';
-    if (n.contains('et6') || n.contains('easytrace6') || n.contains('easytracevi')) return 'assets/MT02S-200.jpg';
-    if (n.contains('fm4200') || n.contains('fm42')) return 'assets/FM4200_v1.92.jpeg';
-    if (n.contains('fm5300') || n.contains('fm53')) return 'assets/FM5300_ v3.4.jpeg';
-    if (n.contains('fma120') || n.contains('fma12')) return 'assets/FMA120_v1.17.jpeg';
+    if (n.contains('et7') ||
+        (n.contains('easytrace') && (n.contains('vii') || n.contains('7'))))
+      return 'assets/ET7.jpeg';
+    if (n.contains('etx') || n.contains('easytracex') || n.contains('protocol'))
+      return 'assets/MT02S-200.jpg';
+    if (n.contains('et8') ||
+        n.contains('easytrace8') ||
+        n.contains('easytraceviii')) return 'assets/MT02S-200.jpg';
+    if (n.contains('et6') ||
+        n.contains('easytrace6') ||
+        n.contains('easytracevi')) return 'assets/MT02S-200.jpg';
+    if (n.contains('fm4200') || n.contains('fm42'))
+      return 'assets/FM4200_v1.92.jpeg';
+    if (n.contains('fm5300') || n.contains('fm53'))
+      return 'assets/FM5300_ v3.4.jpeg';
+    if (n.contains('fma120') || n.contains('fma12'))
+      return 'assets/FMA120_v1.17.jpeg';
+    if (n.contains('gv300') || n.contains('gv300can'))
+      return 'assets/gv300can-gps.jpg.jpeg';
     if (n.contains('gt06')) return 'assets/GT06N.jpeg';
-    if (n.contains('mt02') || n.contains('multitrace') || n.contains('gps') || n.contains('tracker')) return 'assets/MT02S-200.jpg';
+    if (n.contains('mt02') ||
+        n.contains('multitrace') ||
+        n.contains('gps') ||
+        n.contains('tracker')) return 'assets/MT02S-200.jpg';
     return null;
   }
 
@@ -235,7 +310,10 @@ class _ModuleImage extends StatelessWidget {
     // Image réseau si disponible
     if (imageUrl.isNotEmpty) {
       return Image.network(
-        imageUrl, width: size, height: size, fit: BoxFit.contain,
+        imageUrl,
+        width: size,
+        height: size,
+        fit: BoxFit.contain,
         errorBuilder: (_, __, ___) => _buildLocal(localAsset),
       );
     }
@@ -245,14 +323,18 @@ class _ModuleImage extends StatelessWidget {
   Widget _buildLocal(String? asset) {
     if (asset != null) {
       return Image.asset(
-        asset, width: size, height: size, fit: BoxFit.contain,
+        asset,
+        width: size,
+        height: size,
+        fit: BoxFit.contain,
         errorBuilder: (_, __, ___) => _fallbackIcon(),
       );
     }
     return _fallbackIcon();
   }
 
-  Widget _fallbackIcon() => Icon(Icons.gps_fixed, size: size * 0.5, color: AppTheme.c2.withOpacity(0.5));
+  Widget _fallbackIcon() => Icon(Icons.gps_fixed,
+      size: size * 0.5, color: AppTheme.c2.withOpacity(0.5));
 }
 
 // ── Module detail dialog ─────────────────────────────────────────────────────
@@ -305,7 +387,8 @@ class _ModuleDetailDialogState extends State<_ModuleDetailDialog> {
     final cached = PdfService.isCached(filename);
 
     return Dialog(
-      backgroundColor: AppTheme.card(Theme.of(context).brightness == Brightness.dark),
+      backgroundColor:
+          AppTheme.card(Theme.of(context).brightness == Brightness.dark),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       child: Container(
         padding: const EdgeInsets.all(20),
@@ -318,7 +401,10 @@ class _ModuleDetailDialogState extends State<_ModuleDetailDialog> {
               children: [
                 Expanded(
                   child: Text(name,
-                      style: TextStyle(color: AppTheme.c1, fontSize: 20, fontWeight: FontWeight.bold)),
+                      style: TextStyle(
+                          color: AppTheme.c1,
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold)),
                 ),
                 IconButton(
                   icon: const Icon(Icons.close, color: Colors.white),
@@ -334,7 +420,8 @@ class _ModuleDetailDialogState extends State<_ModuleDetailDialog> {
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Center(
-                child: _ModuleImage(imageUrl: imageUrl, filename: filename, size: 120),
+                child: _ModuleImage(
+                    imageUrl: imageUrl, filename: filename, size: 120),
               ),
             ),
             const SizedBox(height: 12),
@@ -344,13 +431,18 @@ class _ModuleDetailDialogState extends State<_ModuleDetailDialog> {
                   textAlign: TextAlign.center),
             const SizedBox(height: 8),
             Text(filename,
-                style: TextStyle(color: AppTheme.c2.withOpacity(0.5), fontSize: 11),
+                style: TextStyle(
+                    color: AppTheme.c2.withOpacity(0.5), fontSize: 11),
                 textAlign: TextAlign.center),
             const Spacer(),
             ElevatedButton.icon(
               onPressed: _loadingPdf ? null : _openPdf,
               icon: _loadingPdf
-                  ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(
+                          strokeWidth: 2, color: Colors.white))
                   : Icon(cached ? Icons.picture_as_pdf : Icons.download),
               label: Text(_loadingPdf
                   ? 'Chargement...'
@@ -361,7 +453,8 @@ class _ModuleDetailDialogState extends State<_ModuleDetailDialog> {
                 backgroundColor: AppTheme.btnDark,
                 foregroundColor: AppTheme.c1,
                 minimumSize: const Size(double.infinity, 50),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12)),
               ),
             ),
           ],
@@ -370,6 +463,3 @@ class _ModuleDetailDialogState extends State<_ModuleDetailDialog> {
     );
   }
 }
-
-
-

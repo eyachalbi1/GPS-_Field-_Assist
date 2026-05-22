@@ -27,6 +27,38 @@ class _LoginScreenState extends State<LoginScreen> {
     _serverUrl = Config.baseUrl;
   }
 
+  Future<void> _changeServerIp() async {
+    final uri = Uri.tryParse(_serverUrl);
+    final ctrl = TextEditingController(text: uri?.host ?? '');
+    final newIp = await showDialog<String>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('IP du serveur'),
+        content: TextField(
+          controller: ctrl,
+          decoration: const InputDecoration(hintText: '192.168.x.x'),
+          keyboardType: TextInputType.number,
+          autofocus: true,
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Annuler')),
+          TextButton(
+            onPressed: () => Navigator.pop(context, ctrl.text.trim()),
+            child: const Text('OK'),
+          ),
+        ],
+      ),
+    );
+    if (newIp != null && newIp.isNotEmpty) {
+      final url = Config.getUrlWithIp(newIp);
+      Config.setCustomUrl(url);
+      await Config.saveConfig();
+      setState(() => _serverUrl = url);
+    }
+  }
+
   @override
   void dispose() {
     _usernameController.dispose();
@@ -38,27 +70,33 @@ class _LoginScreenState extends State<LoginScreen> {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _isLoading = true);
     try {
-      await _authService.login(_usernameController.text, _passwordController.text);
+      await _authService.login(
+          _usernameController.text, _passwordController.text);
       if (!mounted) return;
       final role = await _authService.getUserRole();
       if (!mounted) return;
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(
-          builder: (_) => role == 'admin' ? const AdminScreen() : const HomeScreen(),
+          builder: (_) =>
+              role == 'admin' ? const AdminScreen() : const HomeScreen(),
         ),
       );
     } catch (e) {
       if (!mounted) return;
       String msg;
-      if (e.toString().contains('Identifiants') || e.toString().contains('incorrect')) {
+      if (e.toString().contains('Identifiants') ||
+          e.toString().contains('incorrect')) {
         msg = 'Nom d\'utilisateur ou mot de passe incorrect';
-      } else if (e.toString().contains('Timeout') || e.toString().contains('injoignable')) {
+      } else if (e.toString().contains('Timeout') ||
+          e.toString().contains('injoignable')) {
         msg = 'Serveur injoignable!\nIP: $_serverUrl';
       } else {
         msg = 'Erreur: ${e.toString()}';
       }
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(msg), backgroundColor: Colors.transparent,
+        SnackBar(
+            content: Text(msg),
+            backgroundColor: Colors.transparent,
             duration: const Duration(seconds: 5)),
       );
     } finally {
@@ -84,7 +122,8 @@ class _LoginScreenState extends State<LoginScreen> {
                   const SizedBox(height: 20),
                   // Logo centré
                   Center(
-                    child: Image.asset('assets/logoTunavBlanc.png', width: 140, height: 140),
+                    child: Image.asset('assets/logoTunavBlanc.png',
+                        width: 140, height: 140),
                   ),
                   const SizedBox(height: 24),
                   Text('GPS Field Assist',
@@ -110,53 +149,68 @@ class _LoginScreenState extends State<LoginScreen> {
                           // Username
                           TextFormField(
                             controller: _usernameController,
-                            style: TextStyle(color: Colors.white.withOpacity(0.9)),
+                            style:
+                                TextStyle(color: Colors.white.withOpacity(0.9)),
                             decoration: InputDecoration(
                               labelText: 'Nom d\'utilisateur',
-                              labelStyle: TextStyle(color: Colors.white.withOpacity(0.6)),
-                              prefixIcon: Icon(Icons.person_outline, color: Colors.white.withOpacity(0.6)),
+                              labelStyle: TextStyle(
+                                  color: Colors.white.withOpacity(0.6)),
+                              prefixIcon: Icon(Icons.person_outline,
+                                  color: Colors.white.withOpacity(0.6)),
                               filled: true,
                               fillColor: Colors.white.withOpacity(0.07),
                               enabledBorder: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(14),
-                                borderSide: BorderSide(color: Colors.white.withOpacity(0.25)),
+                                borderSide: BorderSide(
+                                    color: Colors.white.withOpacity(0.25)),
                               ),
                               focusedBorder: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(14),
-                                borderSide: const BorderSide(color: AppTheme.skyBottom, width: 2),
+                                borderSide: const BorderSide(
+                                    color: AppTheme.skyBottom, width: 2),
                               ),
                             ),
-                            validator: (v) => v == null || v.isEmpty ? 'Requis' : null,
+                            validator: (v) =>
+                                v == null || v.isEmpty ? 'Requis' : null,
                           ),
                           const SizedBox(height: 16),
                           // Password
                           TextFormField(
                             controller: _passwordController,
                             obscureText: !_isPasswordVisible,
-                            style: TextStyle(color: Colors.white.withOpacity(0.9)),
+                            style:
+                                TextStyle(color: Colors.white.withOpacity(0.9)),
                             decoration: InputDecoration(
                               labelText: 'Mot de passe',
-                              labelStyle: TextStyle(color: Colors.white.withOpacity(0.6)),
-                              prefixIcon: Icon(Icons.lock_outlined, color: Colors.white.withOpacity(0.6)),
+                              labelStyle: TextStyle(
+                                  color: Colors.white.withOpacity(0.6)),
+                              prefixIcon: Icon(Icons.lock_outlined,
+                                  color: Colors.white.withOpacity(0.6)),
                               suffixIcon: IconButton(
                                 icon: Icon(
-                                  _isPasswordVisible ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+                                  _isPasswordVisible
+                                      ? Icons.visibility_off_outlined
+                                      : Icons.visibility_outlined,
                                   color: Colors.white.withOpacity(0.5),
                                 ),
-                                onPressed: () => setState(() => _isPasswordVisible = !_isPasswordVisible),
+                                onPressed: () => setState(() =>
+                                    _isPasswordVisible = !_isPasswordVisible),
                               ),
                               filled: true,
                               fillColor: Colors.white.withOpacity(0.07),
                               enabledBorder: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(14),
-                                borderSide: BorderSide(color: Colors.white.withOpacity(0.25)),
+                                borderSide: BorderSide(
+                                    color: Colors.white.withOpacity(0.25)),
                               ),
                               focusedBorder: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(14),
-                                borderSide: const BorderSide(color: AppTheme.skyBottom, width: 2),
+                                borderSide: const BorderSide(
+                                    color: AppTheme.skyBottom, width: 2),
                               ),
                             ),
-                            validator: (v) => v == null || v.isEmpty ? 'Requis' : null,
+                            validator: (v) =>
+                                v == null || v.isEmpty ? 'Requis' : null,
                           ),
                           const SizedBox(height: 28),
                           // Bouton connexion
@@ -167,15 +221,24 @@ class _LoginScreenState extends State<LoginScreen> {
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: AppTheme.skyTop,
                                 foregroundColor: Colors.white,
-                                disabledBackgroundColor: AppTheme.skyTop.withOpacity(0.5),
+                                disabledBackgroundColor:
+                                    AppTheme.skyTop.withOpacity(0.5),
                                 elevation: 2,
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                                shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(16)),
                               ),
                               child: _isLoading
-                                  ? const SizedBox(width: 22, height: 22,
-                                      child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5))
+                                  ? const SizedBox(
+                                      width: 22,
+                                      height: 22,
+                                      child: CircularProgressIndicator(
+                                          color: Colors.white,
+                                          strokeWidth: 2.5))
                                   : const Text('Se connecter',
-                                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, letterSpacing: 0.5)),
+                                      style: TextStyle(
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.w700,
+                                          letterSpacing: 0.5)),
                             ),
                           ),
                         ],

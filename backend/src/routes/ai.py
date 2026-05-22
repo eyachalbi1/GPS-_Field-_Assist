@@ -1,8 +1,10 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 from src.services.pdf_ai_service import answer, build_index, search
 from src.services.ai_diagnostic_service import get_recommendations, get_predictive_alerts
 from src.services.recommendation_service import get_task_recommendations
+from src.services.task_prediction_service import get_task_predictions
+from src.services.auth_service import get_current_user
 
 router = APIRouter()
 
@@ -56,3 +58,11 @@ class TaskRecommendationRequest(BaseModel):
 @router.post("/task-recommendations")
 async def task_recommendations(req: TaskRecommendationRequest):
     return get_task_recommendations(req.name, req.description)
+
+
+@router.get("/predict-tasks")
+async def predict_tasks(current_user: dict = Depends(get_current_user)):
+    """Prediction IA de la charge de travail basee sur les vraies taches de la DB."""
+    user_id  = current_user["id"]
+    username = current_user.get("username") or current_user.get("assigned_to_name", "")
+    return get_task_predictions(user_id, username)

@@ -1,0 +1,107 @@
+version: '3.8'
+
+services:
+  # ── Backend en production ───────────────────────────────────────────────────
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.prod
+    container_name: gps_backend_prod
+    restart: always
+    ports:
+      - "8001:8000"
+    environment:
+      DB_HOST: db
+      DB_NAME: tunav_gps_tracking_db
+      DB_USER: postgres
+      DB_PASSWORD: ${POSTGRES_PASSWORD}
+      DB_PORT: 5432
+      SECRET_KEY: ${SECRET_KEY}
+      ENV: production
+      LOG_LEVEL: ${LOG_LEVEL:-WARNING}
+    env_file:
+      - ./.env.production
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - ./backend/static:/app/static:ro
+      - /var/backups/gps-field-assist:/backups:ro
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    networks:
+      - gps-network
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2G
+        reservations:
+          cpus: '1.0'
+          memory: 1G
+
+  # ── PostgreSQL en production ────────────────────────────────────────────────
+  db:
+    image: postgres:15-alpine
+    container_name: gps_postgres_prod
+    restart: always
+    environment:
+      POSTGRES_DB: tunav_gps_tracking_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - postgres_data_prod:/var/lib/postgresql/data
+      - /var/backups/gps-field-assist:/backups:ro
+    ports:
+      - "5433:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - gps-network
+    command: ["postgres", "-N", "5000"]
+
+  # ── Nginx en production (SSL obligatoire) ───────────────────────────────────
+  nginx:
+    image: nginx:alpine
+    container_name: gps_nginx_prod
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/conf.d/default.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./nginx/ssl:/etc/nginx/ssl:ro
+      - ./logs:/var/log/nginx
+    depends_on:
+      - backend
+    networks:
+      - gps-network
+    # En production, utiliser Let's Encrypt (certbot) au lieu de certificats auto-signés
+
+  # Jenkins et services de dev désactivés en production
+  # Décommenter si besoin de CI/CD en production
+  # jenkins:
+  #   profiles: ["ci"]
+
+volumes:
+  postgres_data_prod:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /var/lib/gps-field-assist/postgres
+
+networks:
+  gps-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16

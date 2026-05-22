@@ -1,2 +1,0 @@
-Status: 200
-Response: {"token":"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJhZG1pbiIsInJvbGUiOiJhZG1pbiIsInVzZXJfaWQiOjEsImV4cCI6MTc3MzE3ODExOCwiaWF0IjoxNzcyNTczMzE4fQ.TGPlIB8nFgw8yrQrwbdoXtHutHnyb_9iW5pTQLnX0Aw","user":{"id":1,"username":"admin","role":"admin"}}

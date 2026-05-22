@@ -46,7 +46,7 @@ class _ModuleConfigScreenState extends State<ModuleConfigScreen> {
   Timer? _pollingTimer;
   Timer? _devicesRefreshTimer;
   StreamSubscription<List<GpsDevice>>? _devicesSubscription;
-  List<Map<String, String?>> _examples = [];
+  List<Map<String, dynamic>> _examples = [];
   bool _isLoadingDevices = true;
   String? _currentSmsId;
   int? _lastSmsCheckTime;
@@ -58,6 +58,10 @@ class _ModuleConfigScreenState extends State<ModuleConfigScreen> {
   MobileOperator? _selectedOperatorForSequential;
   List<Map<String, String>> _sequenceCommands = [];
   List<_CommandProgress> _commandProgress = [];
+  final Map<int, String> _commandResponses = {};
+  int _attemptCount = 0;
+
+  static const int _replyTimeoutS = 60;
 
   String _normalizePhone(String input) {
     final trimmed = input.trim();
@@ -70,13 +74,15 @@ class _ModuleConfigScreenState extends State<ModuleConfigScreen> {
   // Commandes EasyTrace (format &&IMEI,pass,Zxx,...)
   List<Map<String, String>> _buildEasyTraceCommands() {
     final imei = _serialController.text.trim();
-    final pass = _passwordController.text.trim().isEmpty ? 'pass' : _passwordController.text.trim();
+    final pass = _passwordController.text.trim().isEmpty
+        ? 'pass'
+        : _passwordController.text.trim();
     final selected = _selectedOperatorForSequential ?? Config.selectedOperator;
 
     // APN selon opérateur
     final apnValues = {
       MobileOperator.telecom: 'internet.tn',
-      MobileOperator.orange:  'apn.tunav.tn',
+      MobileOperator.orange: 'apn.tunav.tn',
       MobileOperator.ooredoo: 'm2m.tunav.com',
     };
     final apn = apnValues[selected] ?? 'internet.tn';
@@ -84,18 +90,41 @@ class _ModuleConfigScreenState extends State<ModuleConfigScreen> {
 
     return [
       {'command': '&&$imei,$pass,Z10,$apn', 'description': 'APN $operatorName'},
-      {'command': '&&$imei,$pass,Z39,1,41.226.24.13,1200,1', 'description': 'IP & Port'},
-      {'command': '&&$imei,$pass,Z31,60,600,60,600,60,600,5,1', 'description': 'Time Report'},
-      {'command': '&&$imei,$pass,Z36,0.7,3,3,1', 'description': 'Distance Report'},
+      {
+        'command': '&&$imei,$pass,Z39,1,41.226.24.13,1200,1',
+        'description': 'IP & Port'
+      },
+      {
+        'command': '&&$imei,$pass,Z31,60,600,60,600,60,600,5,1',
+        'description': 'Time Report'
+      },
+      {
+        'command': '&&$imei,$pass,Z36,0.7,3,3,1',
+        'description': 'Distance Report'
+      },
       {'command': '&&$imei,$pass,Z37,25,2,1', 'description': 'Angle Report'},
-      {'command': '&&$imei,$pass,Z80,1,0', 'description': 'Contact ON/OFF Report'},
-      {'command': '&&$imei,$pass,Z27,1.0,0', 'description': 'Lock GPS when ACC off'},
+      {
+        'command': '&&$imei,$pass,Z80,1,0',
+        'description': 'Contact ON/OFF Report'
+      },
+      {
+        'command': '&&$imei,$pass,Z27,1.0,0',
+        'description': 'Lock GPS when ACC off'
+      },
     ];
   }
 
   bool get _isEasyTraceVII {
     final eq = _equipmentController.text.trim().toLowerCase();
     return eq.contains('easytrace') && (eq.contains('vii') || eq.contains('7'));
+  }
+
+  bool get _isEasyCanTrace {
+    final eq = _equipmentController.text.trim().toLowerCase();
+    return eq.contains('easycantrace') ||
+        eq.contains('gv300can') ||
+        eq.contains('easycan') ||
+        eq.contains('etcan');
   }
 
   // List of configuration commands that require operator to be selected
@@ -217,16 +246,40 @@ class _ModuleConfigScreenState extends State<ModuleConfigScreen> {
     if (_isEasyTraceVII) {
       // Commandes spécifiques EasyTraceVII
       _sequenceCommands = _buildEasyTraceCommands();
-    } else {
-      // Commandes standard (autres modules)
-      final selected = _selectedOperatorForSequential ?? Config.selectedOperator;
+
+      // Commandes pour EasyCanTrace + mise à jour FW
+      final selected =
+          _selectedOperatorForSequential ?? Config.selectedOperator;
       final operatorName = Config.operatorNames[selected] ?? '';
       final apnCommand = Config.apnCommands[selected] ?? '';
       final commands = <Map<String, String>>[];
       if (apnCommand.isNotEmpty) {
         commands.add({
           'command': apnCommand,
-          'description': 'APN ${operatorName.isNotEmpty ? operatorName : ''}'.trim(),
+          'description':
+              'APN ${operatorName.isNotEmpty ? operatorName : ''}'.trim(),
+        });
+      }
+      commands.addAll(_configCommands);
+      // Ajout commande mise à jour firmware (même que diagnostic)
+      commands.add({
+        'command':
+            'AT+GTUPD=gv300can,0,0,20,0,,,http://41.226.24.13:5000/api/download/GV300CANR00_0B08_to_0C10.bin,,0,,,0001\$',
+        'description': 'Mise à jour Firmware EasyCanTrace'
+      });
+      _sequenceCommands = commands;
+    } else {
+      // Commandes standard (autres modules)
+      final selected =
+          _selectedOperatorForSequential ?? Config.selectedOperator;
+      final operatorName = Config.operatorNames[selected] ?? '';
+      final apnCommand = Config.apnCommands[selected] ?? '';
+      final commands = <Map<String, String>>[];
+      if (apnCommand.isNotEmpty) {
+        commands.add({
+          'command': apnCommand,
+          'description':
+              'APN ${operatorName.isNotEmpty ? operatorName : ''}'.trim(),
         });
       }
       commands.addAll(_configCommands);
@@ -236,6 +289,7 @@ class _ModuleConfigScreenState extends State<ModuleConfigScreen> {
       _sequenceCommands.length,
       _CommandProgress.pending,
     );
+    _commandResponses.clear();
   }
 
   Future<void> _loadCommandProgressFromHistory() async {
@@ -397,7 +451,7 @@ class _ModuleConfigScreenState extends State<ModuleConfigScreen> {
   void _handleIncomingSms(SmsMessage? message) {
     if (message == null) return;
 
-    final body   = message.body   ?? '';
+    final body = message.body ?? '';
     final sender = message.address ?? '';
 
     debugPrint('=== SMS RECU === De: $sender | Body: $body');
@@ -410,9 +464,9 @@ class _ModuleConfigScreenState extends State<ModuleConfigScreen> {
     }
 
     // Filtre expéditeur souple
-    if (_lastSentPhone != null &&
-        !_senderMatches(sender, _lastSentPhone!)) {
-      debugPrint('SMS ignore (expediteur non attendu: $sender vs $_lastSentPhone)');
+    if (_lastSentPhone != null && !_senderMatches(sender, _lastSentPhone!)) {
+      debugPrint(
+          'SMS ignore (expediteur non attendu: $sender vs $_lastSentPhone)');
       return;
     }
 
@@ -451,6 +505,12 @@ class _ModuleConfigScreenState extends State<ModuleConfigScreen> {
     }
 
     if (!mounted) return;
+    // Stocker la réponse pour l'index courant
+    if (_currentCommandIndex != null) {
+      setState(() {
+        _commandResponses[_currentCommandIndex!] = body;
+      });
+    }
     // Mark current command as confirmed and continue sequence
     _handleCommandConfirmation();
   }
@@ -557,7 +617,6 @@ class _ModuleConfigScreenState extends State<ModuleConfigScreen> {
     _validationMessage = 'Données valides';
   }
 
-
   Future<void> _checkRecentSms() async {
     try {
       final messages = await _telephony.getInboxSms(
@@ -646,29 +705,24 @@ class _ModuleConfigScreenState extends State<ModuleConfigScreen> {
     final lastInboxDate = inbox.isNotEmpty ? (inbox.first.date ?? 0) : 0;
 
     setState(() {
-      _isSending            = true;
-      _currentCommandIndex  = index;
-      _lastSentCommand      = command;
-      _lastSentPhone        = phone;
-      _lastSmsCheckTime     = lastInboxDate;
+      _isSending = true;
+      _currentCommandIndex = index;
+      _lastSentCommand = command;
+      _lastSentPhone = phone;
+      _lastSmsCheckTime = lastInboxDate;
       _isWaitingForResponse = true;
       _commandProgress[index] = _CommandProgress.sent;
     });
 
-    final sent = await _sendDirectSmsWithResult(phone, command);
-
-    if (!sent) {
-      _stopSequenceWithMessage('Impossible d\'envoyer le SMS – vérifiez la permission SMS');
-      return;
+    try {
+      await _sendDirectSmsWithResult(phone, command);
+    } catch (e) {
+      debugPrint('Erreur envoi SMS: $e');
     }
 
+    if (!mounted) return;
     _startResponseTimer(index);
   }
-
-  // Nombre de tentatives par commande avant abandon
-  static const int _maxAttempts = 2;
-  static const int _replyTimeoutS = 60;
-  int _attemptCount = 0;
 
   void _startResponseTimer(int index) {
     _responseTimer?.cancel();
@@ -677,45 +731,28 @@ class _ModuleConfigScreenState extends State<ModuleConfigScreen> {
       if (!_isSequentialSending || !_isWaitingForResponse) return;
       if (_currentCommandIndex != index) return;
 
-      if (_attemptCount < _maxAttempts) {
-        // Réessayer automatiquement
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-                'Pas de réponse (essai $_attemptCount/$_maxAttempts) – nouvel essai…'),
-            backgroundColor: Colors.transparent,
-            duration: const Duration(seconds: 3),
-          ),
-        );
-        setState(() {
-          _commandProgress[index] = _CommandProgress.sent;
-        });
-        _sendCommandAtIndex(index);
-      } else {
-        // Tous les essais épuisés
-        setState(() {
-          _commandProgress[index] = _CommandProgress.failed;
-          _isWaitingForResponse = false;
-          _isSending = false;
-          _nextCommandIndex = index;
-          _isSequentialSending = false;
-          _attemptCount = 0;
-        });
-
-        if (_currentSmsId != null) {
-          SmsHistoryService.updateStatus(
-              _currentSmsId!, SmsHistoryStatus.failed);
-        }
-
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-                'GPS ne répond pas après $_maxAttempts essais – réessayez plus tard'),
-            backgroundColor: Colors.transparent,
-            duration: const Duration(seconds: 5),
-          ),
-        );
+      // Toujours répéter la commande en échec (sans revenir au début)
+      if (_currentSmsId != null) {
+        SmsHistoryService.updateStatus(_currentSmsId!, SmsHistoryStatus.failed);
       }
+      setState(() {
+        _commandProgress[index] = _CommandProgress.failed;
+        _isWaitingForResponse = false;
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+              'Pas de réponse cmd ${index + 1} – nouvel essai (tentative ${_attemptCount + 1})…'),
+          backgroundColor: Colors.orange.withOpacity(0.85),
+          duration: const Duration(seconds: 3),
+        ),
+      );
+
+      // Répéter la même commande (pas la suivante, pas le début)
+      Future.delayed(const Duration(milliseconds: 800), () {
+        if (mounted && _isSequentialSending) _sendCommandAtIndex(index);
+      });
     });
   }
 
@@ -743,7 +780,10 @@ class _ModuleConfigScreenState extends State<ModuleConfigScreen> {
       return;
     }
 
-    _sendCommandAtIndex(_nextCommandIndex);
+    // 800ms entre commandes pour éviter surcharge SMS
+    Future.delayed(const Duration(milliseconds: 800), () {
+      if (mounted && _isSequentialSending) _sendCommandAtIndex(_nextCommandIndex);
+    });
   }
 
   void _finishSequence() {
@@ -918,7 +958,8 @@ class _ModuleConfigScreenState extends State<ModuleConfigScreen> {
                       children: [
                         _buildConfigTab(),
                         const SizedBox(height: 20),
-                        Divider(color: AppTheme.c2.withOpacity(0.7), thickness: 1),
+                        Divider(
+                            color: AppTheme.c2.withOpacity(0.7), thickness: 1),
                         const SizedBox(height: 20),
                         _buildTestCommandsTab(),
                       ],
@@ -938,9 +979,11 @@ class _ModuleConfigScreenState extends State<ModuleConfigScreen> {
 
   // Barre de statut compacte affichée en bas pendant l'envoi
   Widget _buildStatusBar() {
-    final confirmed = _commandProgress.where((p) => p == _CommandProgress.confirmed).length;
-    final total     = _sequenceCommands.length;
-    final cmd       = _currentCommandIndex != null && _currentCommandIndex! < _sequenceCommands.length
+    final confirmed =
+        _commandProgress.where((p) => p == _CommandProgress.confirmed).length;
+    final total = _sequenceCommands.length;
+    final cmd = _currentCommandIndex != null &&
+            _currentCommandIndex! < _sequenceCommands.length
         ? (_sequenceCommands[_currentCommandIndex!]['command'] ?? '')
         : '';
 
@@ -950,12 +993,12 @@ class _ModuleConfigScreenState extends State<ModuleConfigScreen> {
 
     if (_isWaitingForResponse) {
       barColor = const Color(0xFF3498DB);
-      barIcon  = Icons.hourglass_top;
-      barText  = 'Attente réponse GPS…  [$confirmed/$total]  →  $cmd';
+      barIcon = Icons.hourglass_top;
+      barText = 'Attente réponse GPS…  [$confirmed/$total]  →  $cmd';
     } else {
       barColor = const Color(0xFF48C9B0);
-      barIcon  = Icons.send;
-      barText  = 'Envoi en cours…  [$confirmed/$total]';
+      barIcon = Icons.send;
+      barText = 'Envoi en cours…  [$confirmed/$total]';
     }
 
     return Container(
@@ -1028,12 +1071,15 @@ class _ModuleConfigScreenState extends State<ModuleConfigScreen> {
               width: 56,
               height: 56,
               fit: BoxFit.contain,
-              errorBuilder: (c, e, s) => const Icon(Icons.signal_cellular_alt, size: 40),
+              errorBuilder: (c, e, s) =>
+                  const Icon(Icons.signal_cellular_alt, size: 40),
             ),
           ),
           const SizedBox(height: 6),
           Text(
-            operator.name.isNotEmpty ? (operator.name[0].toUpperCase() + operator.name.substring(1)) : operator.name,
+            operator.name.isNotEmpty
+                ? (operator.name[0].toUpperCase() + operator.name.substring(1))
+                : operator.name,
             style: TextStyle(
               color: isSelected ? Colors.white : Colors.white70,
               fontSize: 12,
@@ -1043,7 +1089,6 @@ class _ModuleConfigScreenState extends State<ModuleConfigScreen> {
       ),
     );
   }
-
 
   Widget _buildConfigTab() {
     if (_isLoadingDevices) {
@@ -1094,13 +1139,30 @@ class _ModuleConfigScreenState extends State<ModuleConfigScreen> {
               children: [
                 Row(
                   children: [
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(8),
+                      child: Image.asset(
+                        _moduleAsset(_equipmentController.text),
+                        width: 40,
+                        height: 40,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) => const Icon(Icons.memory,
+                            color: AppTheme.c2, size: 40),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
                     Icon(Icons.devices, color: AppTheme.c1, size: 20),
                     const SizedBox(width: 8),
                     Text(
                       _equipmentController.text.isNotEmpty
                           ? _equipmentController.text
-                          : (_examples[_selectedExampleIndex]['EquipmentType'] ?? 'N/A'),
-                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
+                          : (_examples[_selectedExampleIndex]
+                                  ['EquipmentType'] ??
+                              'N/A'),
+                      style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white),
                     ),
                   ],
                 ),
@@ -1112,21 +1174,27 @@ class _ModuleConfigScreenState extends State<ModuleConfigScreen> {
                     Expanded(
                       child: Text(
                         'SN: ${_serialController.text.isNotEmpty ? _serialController.text : (_examples[_selectedExampleIndex]['SerialNumber'] ?? 'N/A')}',
-                        style: const TextStyle(fontSize: 12, color: AppTheme.c2),
+                        style:
+                            const TextStyle(fontSize: 12, color: AppTheme.c2),
                       ),
                     ),
                   ],
                 ),
-                if (_simController.text.isNotEmpty || (_examples[_selectedExampleIndex]['SIMCardNumber'] ?? '').trim().isNotEmpty) ...[
+                if (_simController.text.isNotEmpty ||
+                    (_examples[_selectedExampleIndex]['SIMCardNumber'] ?? '')
+                        .trim()
+                        .isNotEmpty) ...[
                   const SizedBox(height: 4),
                   Row(
                     children: [
-                      const Icon(Icons.sim_card, color: Colors.white60, size: 16),
+                      const Icon(Icons.sim_card,
+                          color: Colors.white60, size: 16),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
                           'SIM: ${_simController.text.isNotEmpty ? _simController.text : (_examples[_selectedExampleIndex]['SIMCardNumber'] ?? 'N/A')}',
-                          style: const TextStyle(fontSize: 12, color: AppTheme.c2),
+                          style:
+                              const TextStyle(fontSize: 12, color: AppTheme.c2),
                         ),
                       ),
                     ],
@@ -1196,10 +1264,10 @@ class _ModuleConfigScreenState extends State<ModuleConfigScreen> {
                     _loadCommandProgressFromHistory();
                   },
                   child: Opacity(
-                    opacity: _selectedOperatorForSequential ==
-                            MobileOperator.telecom
-                        ? 1.0
-                        : 0.45,
+                    opacity:
+                        _selectedOperatorForSequential == MobileOperator.telecom
+                            ? 1.0
+                            : 0.45,
                     child: Image.asset(
                       Config.operatorImages[MobileOperator.telecom]!,
                       width: 56,
@@ -1322,7 +1390,8 @@ class _ModuleConfigScreenState extends State<ModuleConfigScreen> {
                           cmd['command'] ?? '',
                           style: TextStyle(
                             color: AppTheme.c1,
-                            fontWeight: isCurrent ? FontWeight.bold : FontWeight.w500,
+                            fontWeight:
+                                isCurrent ? FontWeight.bold : FontWeight.w500,
                             fontSize: 13,
                             fontFamily: 'monospace',
                           ),
@@ -1330,8 +1399,38 @@ class _ModuleConfigScreenState extends State<ModuleConfigScreen> {
                         const SizedBox(height: 2),
                         Text(
                           cmd['description'] ?? '',
-                          style: const TextStyle(color: Colors.white60, fontSize: 11),
+                          style: const TextStyle(
+                              color: Colors.white60, fontSize: 11),
                         ),
+                        if (_commandResponses.containsKey(index)) ...[
+                          const SizedBox(height: 4),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: statusColor.withOpacity(0.15),
+                              borderRadius: BorderRadius.circular(6),
+                              border: Border.all(
+                                  color: statusColor.withOpacity(0.4)),
+                            ),
+                            child: Row(
+                              children: [
+                                Icon(Icons.sms, color: statusColor, size: 12),
+                                const SizedBox(width: 4),
+                                Expanded(
+                                  child: Text(
+                                    _commandResponses[index]!,
+                                    style: TextStyle(
+                                      color: statusColor,
+                                      fontSize: 11,
+                                      fontFamily: 'monospace',
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
                       ],
                     ),
                   ),
@@ -1353,9 +1452,7 @@ class _ModuleConfigScreenState extends State<ModuleConfigScreen> {
         SizedBox(
           width: double.infinity,
           child: ElevatedButton.icon(
-            onPressed: _isSending
-                ? null
-                : () async => _startSequentialSend(),
+            onPressed: _isSending ? null : () async => _startSequentialSend(),
             icon: _isSending
                 ? const SizedBox(
                     width: 20,
@@ -1447,6 +1544,17 @@ class _ModuleConfigScreenState extends State<ModuleConfigScreen> {
     }
   }
 
+  String _moduleAsset(String eq) {
+    final n = eq.toLowerCase().replaceAll(' ', '');
+    if (n.contains('gv300can') ||
+        n.contains('easycantrace') ||
+        n.contains('easycan')) return 'assets/gv300can-gps.jpg.jpeg';
+    if (n.contains('et7') ||
+        (n.contains('easytrace') && (n.contains('vii') || n.contains('7'))))
+      return 'assets/ET7.jpeg';
+    return 'assets/MT02S-200.jpg';
+  }
+
   Widget _buildField(
     String label,
     TextEditingController controller,
@@ -1473,9 +1581,3 @@ class _ModuleConfigScreenState extends State<ModuleConfigScreen> {
     );
   }
 }
-
-
-
-
-
-

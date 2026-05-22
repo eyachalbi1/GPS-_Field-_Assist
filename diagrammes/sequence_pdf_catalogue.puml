@@ -1,0 +1,18 @@
+@startuml Sprint3 Sequence Catalogue
+actor Tech
+participant "AssetsScreen" as Screen
+participant "PdfService" as Service
+participant Backend
+Tech -> Screen : search "ET7"
+Screen -> Screen : _filter()
+Screen -> Service : fetchPdfList()
+Service -> Backend : GET /api/files
+Backend --> Service : ["ET7_manual.pdf", ...]
+Screen --> Tech : Grid thumbs
+Tech -> Screen : tap ET7
+Screen -> Service : getPdfBytes("ET7_manual.pdf")
+Service -> Backend : GET /download/ET7_manual.pdf
+Backend --> Service : bytes (cache)
+Screen -> "ViewerScreen" : navigate memory bytes
+@enduml
+

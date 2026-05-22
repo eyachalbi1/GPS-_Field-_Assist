@@ -1,0 +1,29 @@
+@startuml Sprint3 Global Use Case - Gestion Documentaire PDF
+!theme plain
+skinparam backgroundColor white
+skinparam usecase {
+  BackgroundColor lightblue
+  BorderColor blue
+}
+actor "Technicien" as Tech order 10
+actor "Mobile App" as App order 20
+rectangle "Backend FastAPI" {
+  usecase "Lister PDFs (/api/files)" as UC1
+  usecase "Télécharger PDF (/download)" as UC2
+  usecase "Rechercher AI (/ai/pdf-search)" as UC3
+}
+rectangle "PDF AI Service" {
+  usecase "Indexer PDFs (TF-IDF+Groq)" as UC4
+  usecase "Répondre question (semantic)" as UC5
+}
+actor "Groq LLM" as Groq order 50
+
+Tech --> App : UI Catalogue/Search/Chat
+App --> UC1
+App --> UC2
+App --> UC3
+UC3 ..> UC4 : <<include>>
+UC4 ..> UC5 : <<extend>>
+UC5 --> Groq : query context
+@enduml
+

@@ -378,7 +378,9 @@ class _TechCardState extends State<_TechCard> {
   @override
   void initState() {
     super.initState();
-    _odooCtrl = TextEditingController(text: widget.tech['odoo_user_id'] as String? ?? '');
+    _odooCtrl = TextEditingController(
+      text: widget.tech['assigned_to_id']?.toString() ?? '',
+    );
   }
 
   @override
@@ -627,8 +629,8 @@ class _TechCardState extends State<_TechCard> {
                         Icon(Icons.badge_outlined, size: 12, color: AppTheme.c2),
                         const SizedBox(width: 4),
                         Text(
-                          (widget.tech['odoo_user_id'] as String?)?.isNotEmpty == true
-                              ? 'Odoo ID: ${widget.tech['odoo_user_id']}'
+                          widget.tech['assigned_to_id'] != null
+                              ? 'Odoo ID: ${widget.tech['assigned_to_id']}'
                               : 'Odoo ID: non défini',
                           style: TextStyle(color: AppTheme.c2, fontSize: 11),
                         ),

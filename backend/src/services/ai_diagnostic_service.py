@@ -1,10 +1,15 @@
 """
 Moteur de recommandation SMS + maintenance prédictive par séries temporelles.
 """
+import os
 import re
 from collections import defaultdict, Counter
 from datetime import datetime, timedelta
+from dotenv import load_dotenv
 from src.models.database import get_db
+
+load_dotenv()
+GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
 
 # ── Commandes SMS par symptôme et type d'équipement ───────────────────────────
 SMS_RECOMMENDATIONS = {
@@ -53,32 +58,71 @@ def _match_equipment(name: str) -> str:
 
 # ── Recommandation SMS ─────────────────────────────────────────────────────────
 
+def _groq_sms_recommendations(equipment_type: str, symptom: str, base_cmds: list) -> dict:
+    """Enrichit les recommandations SMS via Groq LLM."""
+    if not GROQ_API_KEY:
+        return {}
+    try:
+        import json
+        from groq import Groq
+        client = Groq(api_key=GROQ_API_KEY)
+        prompt = (
+            f"Equipement GPS : {equipment_type or 'inconnu'}\n"
+            f"Symptome : {symptom or 'inconnu'}\n"
+            f"Commandes SMS de base : {base_cmds}\n\n"
+            "Reponds UNIQUEMENT avec ce JSON valide :\n"
+            '{"sms_commands": [...], "diagnostic_steps": [...], "cause_probable": "..."}\n'
+            "- sms_commands : commandes SMS a envoyer dans l ordre (max 5)\n"
+            "- diagnostic_steps : etapes terrain courtes (max 3)\n"
+            "- cause_probable : cause la plus probable en 1 phrase"
+        )
+        resp = client.chat.completions.create(
+            model="llama-3.3-70b-versatile",
+            messages=[
+                {"role": "system", "content": "Expert GPS terrain. Reponds uniquement en JSON valide, sans texte autour."},
+                {"role": "user", "content": prompt},
+            ],
+            temperature=0.2,
+            max_tokens=300,
+        )
+        text = resp.choices[0].message.content.strip()
+        start, end = text.find('{'), text.rfind('}') + 1
+        if start >= 0 and end > start:
+            return json.loads(text[start:end])
+    except Exception as e:
+        print(f"[ai_diag] Groq error: {e}")
+    return {}
+
+
 def get_recommendations(equipment_type: str = "", symptom: str = "") -> dict:
     """
-    Analyse les tâches récurrentes et retourne les commandes SMS recommandées
-    pour le symptôme + équipement donnés.
+    Analyse les taches recurrentes et retourne les commandes SMS recommandees
+    pour le symptome + equipement donnes — enrichies par Groq LLM.
     """
     symptom_key = _match_symptom(symptom) if symptom else None
     eq_key = _match_equipment(equipment_type) if equipment_type else "default"
 
-    # Fréquence des symptômes depuis la DB
     recurring = _get_recurring_issues()
 
     if not symptom_key:
-        # Retourner le symptôme le plus fréquent
         if recurring:
             symptom_key = recurring[0]["symptom"]
         else:
             return {"recommendations": [], "recurring_issues": recurring}
 
     cmds_map = SMS_RECOMMENDATIONS.get(symptom_key, {})
-    cmds = cmds_map.get(eq_key) or cmds_map.get("default", [])
+    base_cmds = cmds_map.get(eq_key) or cmds_map.get("default", [])
+
+    ai_result = _groq_sms_recommendations(equipment_type, symptom or symptom_key, base_cmds)
 
     return {
         "symptom": symptom_key,
         "equipment": eq_key,
-        "sms_commands": cmds,
+        "sms_commands": ai_result.get("sms_commands", base_cmds),
+        "diagnostic_steps": ai_result.get("diagnostic_steps", []),
+        "cause_probable": ai_result.get("cause_probable", ""),
         "recurring_issues": recurring[:5],
+        "ai_enhanced": bool(ai_result),
     }
 
 

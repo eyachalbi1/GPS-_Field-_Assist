@@ -1,0 +1,221 @@
+@startuml sequence_main
+!theme plain
+skinparam shadowing false
+skinparam defaultTextAlignment left
+skinparam wrapWidth 170
+
+' === STYLE ===
+skinparam Sequence {
+  ArrowColor #2C3E50
+  ActorBorderColor #D4A017
+  ActorBackgroundColor #FFF9E6
+  LifeLineBorderColor #95A5A6
+  LifeLineBackgroundColor #F8F9FA
+  ParticipantBorderColor #2980B9
+  ParticipantBackgroundColor #E8F4FD
+  ParticipantFontColor #2C3E50
+  BoxBackgroundColor #F0F8FF
+}
+skinparam Note {
+  BackgroundColor #FFF9E6
+  BorderColor #D4A017
+  FontSize 9
+}
+
+title Workflow Sequentiel de Diagnostic - GPS Field Assist\nSprint 1 | 7 etapes | Timeout 60s | Retry x3 | Duree moyenne : 28s
+
+actor "Technicien" as tech
+
+box "Application Mobile Flutter" #E8F4FD
+  participant "Interface UI" as ui
+  participant "Service SMS" as sms
+  participant "Parser" as parser
+  participant "Sequencer" as seq
+  participant "Historique" as hist
+end box
+
+box "Reseau GSM" #FFF3E0
+  participant "Passerelle" as gw
+end box
+
+box "Boitier GPS" #E8F5E9
+  participant "Boitier" as gps
+end box
+
+' ============================================
+' PHASE 0 : LANCEMENT
+' ============================================
+== Lancement ==
+tech -> ui : Lancer diagnostic
+activate ui
+ui -> seq : initWorkflow()
+activate seq
+seq --> ui : Workflow pret
+ui --> tech : UI prete
+deactivate seq
+
+' ============================================
+' ETAPE 1 : IMEI (detaillee)
+' ============================================
+== 1. Verification IMEI ==
+ui -> seq : getNextCommand(etape: check_imei)
+activate seq
+seq -> sms : send(*11*4#)
+activate sms
+sms -> gw : transmit()
+activate gw
+gw -> gps : deliver()
+activate gps
+gps --> gw : reply IMEI
+deactivate gps
+gw --> sms : receive()
+deactivate gw
+sms -> parser : parse()
+activate parser
+parser --> sms : IMEI ok
+deactivate parser
+sms -> seq : stepDone()
+seq --> sms : Ack
+deactivate sms
+seq -> hist : log()
+activate hist
+hist --> seq : saved
+deactivate hist
+seq --> ui : success(IMEI)
+deactivate seq
+ui --> tech : [OK] IMEI verifie
+
+' ============================================
+' REFERENCE : ETAPES 2-6 (pattern identique)
+' ============================================
+== 2-6. Etapes sequentielles (pattern commun) ==
+
+ref over tech, ui, seq, sms, gw, gps
+  <b>Pattern etape type (STATUS, UTC, GPRSSET, HC, CORNER)</b>
+  1. seq -> sms : sendCommand(CMD#)
+  2. sms -> gw -> gps : transmission GSM
+  3. gps --> gw --> sms : reponse SMS
+  4. sms -> parser : parseResponse()
+  5. sms -> seq : stepDone() / stepError()
+  6. seq -> hist : log()
+  7. seq --> ui : success(CMD) / failure(CMD, error)
+  8. ui --> tech : [OK] CMD / [KO] CMD + correction
+end ref
+
+' ============================================
+' DETAIL : CORRECTION UTC (exemple alt)
+' ============================================
+== Exemple : Correction UTC automatique ==
+
+alt UTC invalide detecte
+  ui -> seq : correctUTC()
+  activate seq
+  seq -> sms : send(UTC,0#)
+  activate sms
+  sms -> gw : transmit()
+  activate gw
+  gw -> gps : deliver()
+  activate gps
+  gps --> gw : confirm OK
+  deactivate gps
+  gw --> sms : receive()
+  deactivate gw
+  sms -> parser : validate()
+  activate parser
+  parser --> sms : Corrige
+  deactivate parser
+  sms -> seq : stepDone()
+  seq --> sms : Ack
+  deactivate sms
+  seq -> hist : log(correction)
+  activate hist
+  hist --> seq : saved
+  deactivate hist
+  seq --> ui : success(UTC_corrige)
+  deactivate seq
+  ui --> tech : [OK] UTC corrige auto
+else UTC ok
+  ui --> tech : [OK] UTC valide
+end
+
+' ============================================
+' FRAGMENT : RETRY AUTOMATIQUE (applicable a chaque etape)
+' ============================================
+== Gestion erreurs : Retry automatique ==
+
+loop Retry max 3x | Timeout 60s par etape
+  seq -> sms : sendCommand(CMD)
+  activate sms
+  sms -> gw : transmit()
+  activate gw
+
+  alt Reponse valide (< 60s)
+    gw --> sms : reply OK
+    gw --> sms : receive()
+    deactivate gw
+    sms -> parser : parse()
+    activate parser
+    parser --> sms : Donnees valides
+    deactivate parser
+    sms --> seq : stepDone()
+    deactivate sms
+  else Timeout ou erreur
+    gw --> sms : timeout / erreur
+    deactivate gw
+    sms --> seq : stepError(timeout)
+    deactivate sms
+    seq -> seq : incrementRetry()
+  end
+end
+
+' ============================================
+' PHASE 7 : FINALISATION
+' ============================================
+== 7. Finalisation ==
+tech -> ui : finalize()
+activate ui
+ui -> seq : complete()
+activate seq
+seq -> seq : compileResults()
+seq -> hist : logSession()
+activate hist
+hist --> seq : sauvegarde session
+deactivate hist
+seq --> ui : DiagnosticComplete
+ui --> tech : Resultat final :
+  7 etapes validees
+  Duree : 28s
+  Fiabilite : 95.2%
+deactivate seq
+deactivate ui
+
+' ============================================
+' NOTES
+' ============================================
+note over tech, ui
+  <b>Objectifs Sprint 1 :</b>
+  • Diagnostic < 30s
+  • Fiabilite > 95%
+  • 5 modeles supportes
+  • Precision GPS < 15m (92%)
+end note
+
+note over sms, gps
+  <b>Parametres reseau :</b>
+  • Poll inbox : 3-4s
+  • Timeout etape : 60s
+  • Retry auto : x3 max
+  • Correction auto : UTC, APN
+end note
+
+note over parser, seq
+  <b>Commandes SMS principales :</b>
+  Diagnostic : *11*4#, STATUS#, UTC#, GPRSSET#
+    HC,60,7200,7200#, CORNER,20#, RESET#
+  Localisation : *11*3#, &&IMEI,Y01, LAC#
+  Firmware : AT+GTUPD, AT+GTUDLD, AT+GTURST
+  APN : 3 profils operateurs
+end note
+
+@enduml
+

@@ -4,18 +4,20 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/task.dart';
 import '../utils/config.dart';
+import '../utils/cache_store.dart';
+import 'auth_service.dart';
 
 class TaskService {
   static const String _helpdeskUrl    = 'http://41.226.24.13:5000/api/helpdesk/tasks';
-  static const String _helpdeskUpdate = 'http://41.226.24.10:5000/api/helpdesk/update-stage';
+  static const String _helpdeskUpdate = 'http://41.226.24.13:5000/api/helpdesk/update-stage';
   static String get _baseUrl => '${Config.effectiveUrl}/api/tasks';
 
   // Mapping statut Flutter → stage Odoo
   static const Map<String, int> _stageMap = {
-    'a_faire':  1, // Nouveau
-    'en_cours': 2, // En cours
-    'termine':  4, // Terminé
-    'annule':   5, // Annulé
+    'nouveau':  1,
+    'en_cours': 2,
+    'termine':  4,
+    'annule':   5,
   };
 
   // Mapping stage Odoo → label
@@ -35,34 +37,51 @@ class TaskService {
     };
   }
 
+  static const _cacheKeyTasks = 'tasks_list';
+
   Future<List<Task>> getTasks() async {
-    // Essayer d'abord l'API helpdesk distante
+    final odooId = await AuthService().getOdooId();
+
+    List<dynamic>? rawData;
+
+    // 1. API Odoo helpdesk
     try {
       final response = await http
           .get(Uri.parse(_helpdeskUrl))
           .timeout(const Duration(seconds: 10));
-
       if (response.statusCode == 200) {
-        final List<dynamic> data = json.decode(response.body);
-        return data.map((j) => Task.fromJson(j as Map<String, dynamic>)).toList();
+        final List<dynamic> all = json.decode(response.body);
+        // Filtrer par assigned_to_id si disponible
+        rawData = odooId != null
+            ? all.where((t) => t['assigned_to_id']?.toString() == odooId).toList()
+            : all;
+        await CacheStore.set(_cacheKeyTasks, rawData);
+        return rawData.map((j) => Task.fromJson(j as Map<String, dynamic>)).toList();
       }
     } catch (e) {
       debugPrint('Helpdesk API error: $e');
     }
 
-    // Fallback : API locale
+    // 2. Fallback API locale
     try {
       final headers = await _getHeaders();
       final response = await http
           .get(Uri.parse(_baseUrl), headers: headers)
           .timeout(const Duration(seconds: 10));
-
       if (response.statusCode == 200) {
         final List<dynamic> data = json.decode(response.body);
+        await CacheStore.set(_cacheKeyTasks, data);
         return data.map((j) => Task.fromJson(j as Map<String, dynamic>)).toList();
       }
     } catch (e) {
       debugPrint('Local API error: $e');
+    }
+
+    // 3. Cache
+    final cached = await CacheStore.get<List>(_cacheKeyTasks);
+    if (cached != null) {
+      debugPrint('TaskService: using cached tasks');
+      return cached.map((j) => Task.fromJson(Map<String, dynamic>.from(j))).toList();
     }
 
     throw Exception('Impossible de charger les tâches');
@@ -99,32 +118,19 @@ class TaskService {
     await updateStage(taskId, statusString);
   }
 
-  /// Met à jour le stage via l'API Odoo helpdesk.
-  /// [stageKey] : 'a_faire' | 'en_cours' | 'termine' | 'annule'
+  /// [stageKey] : 'nouveau' | 'en_cours' | 'termine' | 'annule'
   Future<bool> updateStage(String taskId, String stageKey) async {
     final stageId = _stageMap[stageKey];
     if (stageId == null) return false;
-    // Appel API Odoo
     try {
+      // API uses GET /api/helpdesk/update-stage/{ticketId}/{stageId}
       final res = await http
-          .put(Uri.parse('$_helpdeskUpdate/$taskId/$stageId'))
+          .get(Uri.parse('$_helpdeskUpdate/$taskId/$stageId'))
           .timeout(const Duration(seconds: 10));
       if (res.statusCode == 200) return true;
+      debugPrint('updateStage HTTP ${res.statusCode}: ${res.body}');
     } catch (e) {
-      debugPrint('updateStage Odoo error: $e');
-    }
-    // Fallback API locale
-    try {
-      final headers = await _getHeaders();
-      await http
-          .put(
-            Uri.parse('$_baseUrl/$taskId/status'),
-            headers: headers,
-            body: json.encode({'status': stageKey}),
-          )
-          .timeout(const Duration(seconds: 10));
-    } catch (e) {
-      debugPrint('updateStage local error: $e');
+      debugPrint('updateStage error: $e');
     }
     return false;
   }

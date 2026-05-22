@@ -30,6 +30,9 @@ class AuthService {
           final prefs = await SharedPreferences.getInstance();
           await prefs.setString(_tokenKey, data['token']);
           await prefs.setString(_userKey, json.encode(data['user']));
+          // Sauvegarder assigned_to_id séparément pour accès rapide
+          final odooId = data['user']['assigned_to_id']?.toString() ?? '';
+          await prefs.setString('odoo_id', odooId);
           return true;
         }
 
@@ -97,5 +100,11 @@ class AuthService {
     if (raw == null) return null;
     final data = json.decode(raw);
     return data['username'] as String?;
+  }
+
+  Future<String?> getOdooId() async {
+    final prefs = await SharedPreferences.getInstance();
+    final v = prefs.getString('odoo_id');
+    return (v != null && v.isNotEmpty) ? v : null;
   }
 }

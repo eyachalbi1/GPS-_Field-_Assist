@@ -1,0 +1,166 @@
+@startuml use_case_main
+!theme plain
+skinparam shadowing false
+skinparam defaultTextAlignment center
+skinparam wrapWidth 160
+
+' === STYLE GLOBAL ===
+skinparam Rectangle {
+  BackgroundColor #F0F8FF
+  BorderColor #2C3E50
+  RoundCorner 15
+}
+skinparam Actor {
+  BackgroundColor #FFF9E6
+  BorderColor #D4A017
+  RoundCorner 8
+}
+skinparam UseCase {
+  BackgroundColor White
+  BorderColor #2980B9
+  RoundCorner 5
+  FontSize 10
+}
+skinparam Package {
+  BackgroundColor #F8F9FA
+  BorderColor #6C757D
+  RoundCorner 10
+}
+skinparam Arrow {
+  Color #2C3E50
+  FontSize 9
+}
+
+title GPS Field Assist - Sprint 1\nDiagramme de Cas d'Utilisation Complet
+
+' === ACTEURS ===
+left to right direction
+actor "Technicien\nTerrain" as tech
+actor "Boitier GPS" as gps
+actor "Operateur\nMobile" as op
+actor "Backend\nAPI" as backend
+
+rectangle "Systeme GPS Field Assist" {
+
+  ' === MODULE DIAGNOSTIC ===
+  package "DIAGNOSTIC" #E8F4FD {
+    usecase "Workflow\nSequentiel\n(7 etapes)" as UC_DIAG
+    usecase "Verifier\nIdentite (IMEI)" as UC_IMEI
+    usecase "Controler\nEtat (STATUS)" as UC_STATUS
+    usecase "Synchroniser\nHorloge (UTC)" as UC_UTC
+    usecase "Valider\nConfiguration" as UC_VALID
+
+    note right of UC_DIAG
+      Profil ET8 reference :
+      1. *11*4#  — IMEI
+      2. STATUS#  — Etat
+      3. UTC#     — Horloge
+      4. GPRSSET# — Reseau
+      5. HC#      — Heartbeat
+      6. CORNER#  — Validation
+      Param : Retry x3 | Timeout 60s
+    end note
+  }
+
+  ' === MODULE CONFIGURATION ===
+  package "CONFIGURATION" #FFF3E0 {
+    usecase "Configurer\nAPN (3 op.)" as UC_APN
+    usecase "Mettre a Jour\nFirmware" as UC_FW
+    usecase "Parametrer\nHeartbeat" as UC_HC
+
+    note right of UC_APN
+      3 profils operateurs :
+      • Telecom  : APN,internet.tn#
+      • Orange   : APN,apn.tunav.tn#
+      • Ooredoo  : APN,m2m.tunav.com,tunav,tunav#
+    end note
+  }
+
+  ' === MODULE LOCALISATION ===
+  package "LOCALISATION" #E8F5E9 {
+    usecase "Obtenir\nPosition GPS" as UC_POS
+    usecase "Localiser\npar Cellule GSM" as UC_LAC
+  }
+
+  ' === MODULE COMMUNICATION SMS ===
+  package "COMMUNICATION SMS" #F3E5F5 {
+    usecase "Envoyer\nCommandes" as UC_SEND
+    usecase "Recevoir et\nParser" as UC_RECV
+    usecase "Gerer\nHistorique" as UC_HIST
+    usecase "Poll Inbox\n(3-4s)" as UC_POLL
+
+    note right of UC_RECV
+      Parsing automatique :
+      • Regex extraction donnees
+      • Detection erreurs / timeout
+      • Stockage JSON local
+    end note
+  }
+
+  ' === MODULE DONNEES ===
+  package "DONNEES" #FFF9E6 {
+    usecase "Synchroniser\nDepuis API" as UC_SYNC
+    usecase "Stocker\nParametres" as UC_STORE
+    usecase "Generer\nStatistiques" as UC_STATS
+
+    note right of UC_STATS
+      Metriques parc :
+      • Taux sante global
+      • Repartition par modele
+      • Alertes predictives
+      • Evolution historique
+    end note
+  }
+}
+
+' === RELATIONS ACTEUR → UC ===
+tech --> UC_DIAG : "lance"
+tech --> UC_APN : "configure"
+tech --> UC_FW : "met a jour"
+tech --> UC_POS : "demande"
+tech --> UC_STATS : "consulte"
+tech --> UC_SEND : "selectionne"
+
+' === RELATIONS SYSTEME ===
+gps ..> UC_DIAG : "<<extend>>\nexecute"
+gps ..> UC_POS : "<<extend>>\nenvoie coord"
+op ..> UC_SEND : "<<include>>\ntransmet"
+op ..> UC_RECV : "<<include>>\ndelivre"
+backend ..> UC_SYNC : "<<include>>\nprofils"
+backend ..> UC_STATS : "<<include>>\ndata"
+
+' === INCLUSIONS OBLIGATOIRES (UC → UC) ===
+UC_DIAG ..> UC_IMEI : "<<include>>"
+UC_DIAG ..> UC_STATUS : "<<include>>"
+UC_DIAG ..> UC_UTC : "<<include>>"
+UC_DIAG ..> UC_VALID : "<<include>>"
+UC_DIAG ..> UC_SEND : "<<include>>"
+
+UC_APN ..> UC_SEND : "<<include>>"
+UC_FW ..> UC_SEND : "<<include>>"
+UC_POS ..> UC_SEND : "<<include>>"
+UC_HC ..> UC_SEND : "<<include>>"
+
+UC_SEND ..> UC_POLL : "<<include>>"
+UC_POLL ..> UC_RECV : "<<include>>"
+UC_RECV ..> UC_HIST : "<<include>>"
+UC_RECV ..> UC_STORE : "<<include>>"
+
+UC_SYNC ..> UC_STORE : "<<include>>"
+UC_STATS ..> UC_SYNC : "<<include>>"
+
+' === EXTENSIONS (UC → UC) ===
+UC_UTC ..> UC_UTC : "<<extend>>\ncorrection auto"
+UC_DIAG ..> UC_HC : "<<extend>>\nconfig avancee"
+UC_DIAG ..> UC_APN : "<<extend>>\nreseau KO"
+
+' === LEGENDE ===
+legend right
+  Legende :
+  ----> Interaction directe
+  -..->> <<include>> (obligatoire)
+  -..->> <<extend>> (conditionnelle)
+endlegend
+
+@enduml
+

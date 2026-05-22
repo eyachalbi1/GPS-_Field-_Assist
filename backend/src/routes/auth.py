@@ -15,7 +15,12 @@ async def login(request: LoginRequest):
     token = create_access_token({"sub": user["username"], "role": user["role"], "user_id": user["id"]})
     return LoginResponse(
         token=token,
-        user={"id": user["id"], "username": user["username"], "role": user["role"]}
+        user={
+            "id":             user["id"],
+            "username":       user["username"],
+            "role":           user["role"],
+            "assigned_to_id": user.get("assigned_to_id"),
+        }
     )
 
 @router.get("/users")

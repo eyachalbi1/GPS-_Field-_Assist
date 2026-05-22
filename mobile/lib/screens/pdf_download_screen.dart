@@ -90,12 +90,12 @@ class _PdfDownloadScreenState extends State<PdfDownloadScreen> {
             Text(_listError!),
             const SizedBox(height: 16),
             ElevatedButton(
-              onPressed: _loadList,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppTheme.skyBottom,
-                foregroundColor: Colors.white,
-              ),
-              child: const Text('Réessayer')),
+                onPressed: _loadList,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.skyBottom,
+                  foregroundColor: Colors.white,
+                ),
+                child: const Text('Réessayer')),
           ],
         ),
       );
@@ -110,22 +110,38 @@ class _PdfDownloadScreenState extends State<PdfDownloadScreen> {
         final isOpening = _opening.contains(filename);
         final cached = PdfService.isCached(filename);
 
+        final isGv300can = filename.toLowerCase().contains('gv300can');
         return ListTile(
-          leading: Icon(
-            Icons.picture_as_pdf,
-            color: cached ? Colors.green : Colors.red,
-          ),
+          leading: isGv300can
+              ? ClipRRect(
+                  borderRadius: BorderRadius.circular(6),
+                  child: Image.asset(
+                    'assets/gv300can-gps.jpg.jpeg',
+                    width: 40,
+                    height: 40,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) => Icon(
+                      Icons.picture_as_pdf,
+                      color: cached ? Colors.green : Colors.red,
+                    ),
+                  ),
+                )
+              : Icon(
+                  Icons.picture_as_pdf,
+                  color: cached ? Colors.green : Colors.red,
+                ),
           title: Text(name),
           subtitle: Text(filename, style: const TextStyle(fontSize: 11)),
           trailing: isOpening
-              ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2))
-              : Icon(cached ? Icons.check_circle : Icons.download, color: cached ? Colors.green : null),
+              ? const SizedBox(
+                  width: 24,
+                  height: 24,
+                  child: CircularProgressIndicator(strokeWidth: 2))
+              : Icon(cached ? Icons.check_circle : Icons.download,
+                  color: cached ? Colors.green : null),
           onTap: isOpening ? null : () => _openPdf(filename, name),
         );
       },
     );
   }
 }
-
-
-

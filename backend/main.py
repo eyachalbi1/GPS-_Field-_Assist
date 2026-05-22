@@ -3,12 +3,31 @@ import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from fastapi.responses import Response
+from prometheus_client import Counter, Histogram, generate_latest, CONTENT_TYPE_LATEST
 from src.routes.auth import router as auth_router
 from src.routes.files import router as files_router
 from src.routes.tasks import router as tasks_router
 from src.models.database import init_users_table
 
 app = FastAPI(title="GPS Field Assist", redirect_slashes=False)
+
+# Métriques Prometheus
+REQUEST_COUNT = Counter('http_requests_total', 'Total HTTP requests', ['method', 'endpoint', 'status'])
+REQUEST_LATENCY = Histogram('http_request_duration_seconds', 'HTTP request latency', ['endpoint'])
+
+@app.middleware("http")
+async def metrics_middleware(request, call_next):
+    import time
+    start = time.time()
+    response = await call_next(request)
+    REQUEST_COUNT.labels(request.method, request.url.path, response.status_code).inc()
+    REQUEST_LATENCY.labels(request.url.path).observe(time.time() - start)
+    return response
+
+@app.get("/metrics")
+async def metrics():
+    return Response(generate_latest(), media_type=CONTENT_TYPE_LATEST)
 
 # Configuration CORS
 app.add_middleware(

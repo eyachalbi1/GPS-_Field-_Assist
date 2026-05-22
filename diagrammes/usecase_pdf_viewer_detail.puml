@@ -1,0 +1,13 @@
+@startuml Sprint3 Viewer Detail
+!theme plain
+actor "Technicien" 
+rectangle "pdf_memory_viewer_screen.dart" {
+  usecase "SfPdfViewer.memory(bytes)" as UC1
+  usecase "Pagination _pdfController" as UC2
+  usecase "Page jump TextField" as UC3
+}
+UC1 <-- "PdfService.getPdfBytes()" : cache first
+UC2 --> "onDocumentLoaded _totalPages"
+UC3 --> "jumpToPage(p)"
+@enduml
+

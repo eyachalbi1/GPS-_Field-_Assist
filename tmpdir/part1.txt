@@ -1,0 +1,213 @@
+﻿\chapter{Sprint 1: Diagnostic, Mise Ã  Jour, Configuration SMS et Position GPS des BoÃ®tiers}
+
+% =============================================================================
+% DÃ‰FINITIONS DE COULEURS POUR DIAGRAMMES TIKZ
+% =============================================================================
+\definecolor{kiloblue}{RGB}{41,128,185}
+\definecolor{kilogreen}{RGB}{39,174,96}
+\definecolor{successgreen}{RGB}{46,204,113}
+\definecolor{warningorange}{RGB}{230,126,34}
+\definecolor{errorred}{RGB}{231,76,60}
+\definecolor{kilogray}{RGB}{127,140,141}
+% =============================================================================
+
+% =============================================================================
+% COMMANDES DE GÃ‰NÃ‰RATION DES DIAGRAMMES (Ã  exÃ©cuter avant compilation)
+% =============================================================================
+% plantuml -tpng sprint1_usecase_diagram_v2.puml -o output/
+% plantuml sprint1_sequence_diagram_v2.puml -o output/
+% Les images gÃ©nÃ©rÃ©es (PNG) seront automatiquement inclusion par \includegraphics
+% si les chemins sont corrects. Remplacer les \fbox{} par \includegraphics{}
+% =============================================================================
+
+\section{Introduction}
+
+Ce premier sprint a pour objectif de dÃ©velopper les fonctionnalitÃ©s essentielles de \textbf{GPS Field Assist} permettant aux techniciens de terrain de diagnostiquer, mettre Ã  jour, configurer et localiser les boÃ®tiers GPS directement depuis leur mobile. Les fonctionnalitÃ©s clÃ©s incluent :
+\begin{itemize}[leftmargin=*]
+  \item Diagnostic sÃ©quentiel automatisÃ© pour modÃ¨les multiples
+  \item Configuration des paramÃ¨tres rÃ©seau selon l'opÃ©rateur
+  \item Mise Ã  jour du firmware via SMS
+  \item Position GPS sur carte interactive
+  \item Consultation des statistiques du parc en temps rÃ©el
+\end{itemize}
+
+L'objectif visÃ© est de permettre des opÃ©rations de diagnostic et configuration en moins de 30 secondes avec une fiabilitÃ© supÃ©rieure Ã  95\%.
+
+Les donnÃ©es du parc de boÃ®tiers sont importÃ©es automatiquement depuis la plateforme de gestion \textbf{Odoo} vers un serveur backend Node.js. Ce serveur expose une API REST qui fournit la liste des Ã©quipements, les configurations et les historiques Ã  l'application mobile. L'intÃ©gration avec Odoo garantit que les informations des boÃ®tiers (IMEI, modÃ¨le, statut, affectation) sont toujours Ã  jour sans saisie manuelle.
+
+\textbf{Objectifs statistiques du sprint :}
+\begin{itemize}[leftmargin=*]
+  \item Taux de succÃ¨s global des diagnostics : > 95\%
+  \item PrÃ©cision GPS : < 15m dans 92\% des cas
+  \item Temps moyen de cycle par boÃ®tier : < 30 secondes
+  \item Support de 5 modÃ¨les de boÃ®tiers (ET8, GV300CAN, FM4200, GT06N, MT02S)
+  \item Taux de rÃ©ponse SMS : > 93\% en conditions rÃ©elles
+\end{itemize}
+
+% =============================================================================
+\section{Sprint Planning}
+% =============================================================================
+
+Cette section prÃ©sente la planification du sprint, incluant l'objectif global et les user stories sÃ©lectionnÃ©es avec leurs critÃ¨res d'acceptation.
+
+\subsection{Objectif global}
+
+DÃ©velopper un ensemble complet d'outils de diagnostic, de mise Ã  jour, de configuration SMS et de position GPS pour les boÃ®tiers terrain, permettant aux techniciens de diagnostiquer, mettre Ã  jour et configurer les Ã©quipements en moins de 30 secondes avec une fiabilitÃ© supÃ©rieure Ã  95\%.
+
+\subsection{User Stories sÃ©lectionnÃ©es}
+
+\begin{table}[H]
+\centering
+\small
+\begin{tabularx}{\textwidth}{|c|X|X|c|}
+\hline
+\rowcolor{gray!15}
+\textbf{ID} & \textbf{User Story} & \textbf{CritÃ¨res d'Acceptation} & \textbf{Points} \\ \hline
+US-01 & \textbf{En tant que technicien}, je veux envoyer des commandes SMS prÃ©dÃ©finies pour diagnostiquer les boÃ®tiers GPS &
+\begin{itemize}[leftmargin=5pt,noitemsep,topsep=0pt]
+  \item Commandes adaptÃ©es Ã  plusieurs modÃ¨les (ET8, GV300CAN, FM4200, GT06N, MT02S)
+  \item Retry automatique en cas d'Ã©chec (jusqu'Ã  3 tentatives)
+  \item Timeout configurable par commande (60s par Ã©tape)
+  \item Parsing automatique des rÃ©ponses SMS (IMEI, UTC, PROTOCOL)
+  \item Historique local des commandes envoyÃ©es
+\end{itemize}
+& 5 \\ \hline
+US-02 & \textbf{En tant que technicien}, je veux configurer les APN selon l'opÃ©rateur (Ooredoo, Orange, Telecom) &
+\begin{itemize}[leftmargin=5pt,noitemsep,topsep=0pt]
+  \item 3 profils APN prÃ©dÃ©finis (un par opÃ©rateur tunisien)
+  \item Configuration en 1 clic (boutons dÃ©diÃ©s)
+  \item Persistance locale via SharedPreferences
+  \item Retry automatique sur opÃ©rateurs alternatifs en cas d'Ã©chec
+  \item Validation de la configuration par rÃ©ponse SMS
+\end{itemize}
+& 3 \\ \hline
+US-03 & \textbf{En tant que technicien}, je veux mettre Ã  jour le firmware via SMS &
+\begin{itemize}[leftmargin=5pt,noitemsep,topsep=0pt]
+  \item Commandes de mise Ã  jour intÃ©grÃ©es (AT+GTUPD pour GV300CAN)
+  \item Suivi de progression visible (barre de progression en temps rÃ©el)
+  \item Validation post-mise Ã  jour (vÃ©rification version firmware)
+  \item Gestion des erreurs avec retry automatique
+  \item CompatibilitÃ© avec modÃ¨les supportant firmware update
+\end{itemize}
+& 8 \\ \hline
+US-04 & \textbf{En tant que technicien}, je veux obtenir la position GPS par SMS et visualiser sur carte &
+\begin{itemize}[leftmargin=5pt,noitemsep,topsep=0pt]
+  \item Commandes de localisation standard (*11*3#, \&\&IMEI,Y01)
+  \item Carte interactive (OpenStreetMap via Leaflet)
+  \item AccÃ¨s direct Ã  Google Maps (bouton externe)
+  \item Extraction multi-format des coordonnÃ©es (regex robuste)
+  \item PrÃ©cision < 15m dans 92\% des cas
+  \item PrÃ©diction GPS offline basÃ©e sur historique
+\end{itemize}
+& 5 \\ \hline
+US-05 & \textbf{En tant que technicien}, je veux un workflow sÃ©quentiel guidÃ© pas Ã  pas &
+\begin{itemize}[leftmargin=5pt,noitemsep,topsep=0pt]
+  \item Ã‰tapes automatisÃ©es selon le modÃ¨le (7 Ã©tapes pour ET8)
+  \item Gestion des cas d'erreur (actions correctives automatiques)
+  \item Indicateurs visuels de progression (badges âœ“âš âœ—, barre de progression)
+  \item Timeout configurable (60s par Ã©tape)
+  \item Retry automatique (jusqu'Ã  3 tentatives par commande)
+  \item Machine Ã  Ã©tats sÃ©quentielle avec branches conditionnelles
+\end{itemize}
+& 8 \\ \hline
+US-06 & \textbf{En tant que technicien}, je veux consulter les statistiques du parc de boÃ®tiers &
+\begin{itemize}[leftmargin=5pt,noitemsep,topsep=0pt]
+  \item Taux de santÃ© global (pourcentage calculÃ© depuis equipmentStatus)
+  \item Modules OK vs alertes (compteurs avec codes couleur)
+  \item RÃ©partition par statut et modÃ¨le (graphique circulaire/barres)
+  \item 5 niveaux de statut prÃ©dictif (opÃ©rationnel, vÃ©rif firmware, config req, diagnostic req, intervention)
+  \item DonnÃ©es en temps rÃ©el synchronisÃ©es avec backend
+  \item Support offline (cache local des derniÃ¨res statistiques)
+\end{itemize}
+& 3 \\ \hline
+\multicolumn{3}{|r|}{\textbf{Total des points}} & \textbf{32} \\ \hline
+\end{tabularx}
+\caption{User Stories du Sprint 1 - Points Fibonacci avec critÃ¨res dÃ©taillÃ©s}
+\label{tab:user-stories}
+\end{table}
+
+% =============================================================================
+\subsection{Backlog du Sprint}
+% =============================================================================
+
+\begin{table}[H]
+\centering
+\small
+\begin{tabularx}{\textwidth}{|>{\columncolor{gray!10}}c|>{\raggedright\arraybackslash}X|c|}
+\hline
+\textbf{\#} & \textbf{Ã‰lÃ©ment du Backlog} & \textbf{Statut} \\
+\hline
+1 & Service SMS templates (commandes prÃ©dÃ©finies multi-modÃ¨les) : implÃ©mentation de 15+ commandes SMS pour les 5 modÃ¨les supportÃ©s (*11*4#, STATUS#, AT+GTUPD, RESET\#, *11*3#, etc.) avec gestion dynamique de l'IMEI et parsing des rÃ©ponses &
+\cellcolor{successgreen!30}TerminÃ© \\
+\hline
+2 & Ã‰cran diagnostic workflow (5 onglets, cartes colorÃ©es, retry automatique) : diagnostic\_screen.dart (1400 lignes) - interface principale avec 5 onglets (Position/Mise Ã  jour/Configuration/Diagnostic/STAT), cartes colorÃ©es par module, retry automatique x3, intÃ©gration SMS &
+\cellcolor{successgreen!30}TerminÃ© \\
+\hline
+3 & Ã‰cran EasyTrace ET8 (workflow sÃ©quentiel, timeout configurable) : easytrace\_diagnostic\_screen.dart (900 lignes) - workflow 7 Ã©tapes (*11*4# â†’ STATUS\# â†’ UTC\# â†’ GPRSSET\# â†’ HC\# â†’ CORNER\#), timeout 60s par Ã©tape, actions correctives automatiques (resync horloge, retry APN) &
+\cellcolor{successgreen!30}TerminÃ© \\
+\hline
+4 & Configuration APN par opÃ©rateur (Ooredoo/Orange/Telecom) : config.dart (250 lignes) - enum des opÃ©rateurs, commandes APN prÃ©dÃ©finies, persistance SharedPreferences, logique de retry sur opÃ©rateurs alternatifs, validation par SMS &
+\cellcolor{successgreen!30}TerminÃ© \\
+\hline
+5 & GPS prÃ©dictif offline (basÃ© sur historique SMS) : gps\_prediction\_service.dart (200 lignes) -enum GpsPredictedStatus, predictWithSms() analysant historique JSON, alertes dynamiques (timeout/IMEI incorrect/dÃ©calage UTC) &
+\cellcolor{successgreen!30}TerminÃ© \\
+\hline
+6 & Historique local (stockage persistant par module) : SharedPreferences avec JSON par module (commands/nextIndex/timestamp), rotation automatique, chargement diffÃ©rÃ© pour performance &
+\cellcolor{successgreen!30}TerminÃ© \\
+\hline
+7 & Monitoring SMS realtime (polling pÃ©riodique, parsing automatique) : Telephony inbox polling toutes les 3-4 secondes via Timer.periodic, parsing IMEI/UTC/protocol via regex, appariement automatique rÃ©ponse/commande &
+\cellcolor{successgreen!30}TerminÃ© \\
+\hline
+8 & Interface rÃ©sultats visuels (badges, barres, alertes) : ProgressIndicators Linear, badges âœ“âš âœ—, images modules, barre santÃ© 85\%, alertes clignotantes, code couleur vert/orange/rouge par statut &
+\cellcolor{successgreen!30}TerminÃ© \\
+\hline
+9 & Tests terrain sur 5 modÃ¨les de boÃ®tiers : campagne 62 sÃ©quences sur ET8/GV300CAN/FM4200/GT06N/MT02S, validation prÃ©cision GPS <15m (92\%), temps moyen 28s, taux succÃ¨s 95.2\% &
+\cellcolor{successgreen!30}TerminÃ© \\
+\hline
+10 & Documentation des commandes SMS : 15 commandes documentÃ©es avec syntaxe, paramÃ¨tres dynamiques (IMEI), cas spÃ©ciaux par modÃ¨le, panel manuel GV300CAN &
+\cellcolor{successgreen!30}TerminÃ© \\
+\hline
+11 & Cache offline (fonctionnement sans rÃ©seau) : prÃ©fÃ©rences APN/opÃ©rateur/historique, prÃ©diction GPS sans connexion, synchronisation diffÃ©rÃ©e backend &
+\cellcolor{successgreen!30}TerminÃ© \\
+\hline
+12 & Gestion timeouts et retry automatique : timeout 60s/Ã©tape, retry commande â†’ RESET\# â†’ retry â†’ fail, poll inbox 3s, machine Ã  Ã©tats robuste &
+\cellcolor{successgreen!30}TerminÃ© \\
+\hline
+\end{tabularx}
+\caption{Backlog Sprint 1 - 12/12 Ã©lÃ©ments implÃ©mentÃ©s (100\%)}
+\label{tab:backlog}
+\end{table}
+
+% =============================================================================
+\subsection{Raffinement des cas d'utilisation}
+% =============================================================================
+
+La prÃ©sente section dÃ©taille le raffinement des cas d'utilisation principaux, incluant le diagramme de cas d'utilisation et le tableau des acteurs.
+
+\subsubsection{Diagramme de Cas d'Utilisation - DÃ©composition}
+
+La figure \ref{fig:usecase-global} prÃ©sente le diagramme de cas d'utilisation global avec sa dÃ©composition en sous-systÃ¨mes spÃ©cialisÃ©s (Fig. \ref{fig:d1-detail}, \ref{fig:sms-detail}, \ref{fig:conf-detail}, \ref{fig:gps-detail}, \ref{fig:fw-detail}).
+
+\begin{figure}[H]
+\centering
+% GÃ©nÃ©rÃ© depuis sprint1_usecase_diagram_v2.puml (version unifiÃ©e)
+% Commande: plantuml -tpng sprint1_usecase_diagram_v2.puml -o ./
+\includegraphics[width=0.95\textwidth]{sprint1_usecase_diagram_v2.png}
+\caption{Diagramme de cas d'utilisation â€” GPS Field Assist Sprint 1 (Vue unifiÃ©e avec tous les sous-diagrammes)}
+\label{fig:usecase-global}
+\end{figure}
+
+\textbf{Description du diagramme :}
+
+Le diagramme prÃ©sente une architecture centrÃ©e sur le \textbf{workflow sÃ©quentiel automatique} (cÅ“ur du Diagnostic), qui intÃ¨gre obligatoirement l'envoi de commandes SMS (UC6), le parsing des rÃ©ponses (UC7) et le stockage dans l'historique (UC8). Le systÃ¨me est organisÃ© en 6 packages fonctionnels :
+
+\begin{itemize}[leftmargin=*]
+\item \textbf{ðŸ”§ Diagnostic Automatique (UC1)} : Workflow sÃ©quentiel Ã  7 Ã©tapes, adaptÃ© multi-modÃ¨les via profils de commandes paramÃ©trables. Inclut les sous-composants : envoi commande (UC1A), parsing rÃ©ponse (UC1B), historique local (UC1C).
+\item \textbf{ðŸ“² Gestion SMS (UC6-UC10)} : BibliothÃ¨que de 20+ commandes SMS couvrant diagnostic, localisation, firmware et configuration, avec parsing automatique des rÃ©ponses et rotation d'historique.
+\item \textbf{âš™ï¸ Configuration APN (UC2)} : Configuration des points d'accÃ¨s rÃ©seau pour les 3 opÃ©rateurs tunisiens (Ooredoo, Orange, Telecom) avec persistance locale et retry automatique.
+\item \textbf{ðŸ“ Localisation GPS (UC3)} : Obtention des coordonnÃ©es via 3 modes (*11*3#, \&\&IMEI,Y01, LAC#) avec intÃ©gration cartographique (OpenStreetMap/Google Maps).
+\item \textbf{â¬†ï¸ Mise Ã  jour firmware (UC4)} : ProcÃ©dure de mise Ã  jour via commandes AT pour les modÃ¨les compatibles (AT+GTUPD/GTUDLD/GTURST pour GV300CAN).
+\item \textbf{ðŸ“Š Statistiques parc (UC5)} : Consultation des indicateurs de santÃ© globale, rÃ©partition par statut, version firmware et taux de succÃ¨s des diagnostics.
+\end{itemize}
+
+Les 5 acteurs interagissent avec ces modules : Technicien (utilisateur principal), BoÃ®tier GPS (exÃ©cution des commandes), OpÃ©rateur (transmission SMS), Backend API (synchronisation Odoo, statistiques), et le SystÃ¨me SMS (gestion envoi/rÃ©ception). Les relations de type \texttt{<<include>>} indiquent les dÃ©pendances obligatoires (ex: Diagnostic inclut l'envoi de commandes SMS), tandis que les \texttt{<<extend>>} reprÃ©sentent les extensions conditionnelles selon le modÃ¨le de boÃ®tier.

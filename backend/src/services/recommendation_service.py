@@ -4,8 +4,13 @@ Recommandations personnalisées par intervention :
 - Tutoriels pertinents selon la nature de la tâche
 - Estimation de durée basée sur l'historique des interventions similaires
 """
+import os
 import re
+from dotenv import load_dotenv
 from src.models.database import get_db
+
+load_dotenv()
+GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
 
 # ── Base de connaissances ──────────────────────────────────────────────────────
 
@@ -136,16 +141,53 @@ def _estimate_duration(task_type: str) -> dict:
     return {"minutes": default_min, "source": "estimation", "sample_size": 0}
 
 
+# ── Enrichissement Groq LLM ───────────────────────────────────────────────────
+
+def _groq_task_insight(name: str, description: str, task_type: str,
+                       tools: list, duration: dict) -> str:
+    if not GROQ_API_KEY:
+        return ""
+    try:
+        from groq import Groq
+        client = Groq(api_key=GROQ_API_KEY)
+        prompt = (
+            f"Intervention GPS : {name}\n"
+            f"Description : {description or 'non fournie'}\n"
+            f"Type detecte : {task_type}\n"
+            f"Outils prevus : {tools}\n"
+            f"Duree estimee : {duration['minutes']} min ({duration['source']})\n\n"
+            "En 2 phrases courtes en francais, donne un conseil pratique specifique "
+            "pour reussir cette intervention GPS terrain. Sois direct, sans introduction."
+        )
+        resp = client.chat.completions.create(
+            model="llama-3.3-70b-versatile",
+            messages=[
+                {"role": "system", "content": "Expert GPS terrain. 2 phrases max en francais."},
+                {"role": "user", "content": prompt},
+            ],
+            temperature=0.3,
+            max_tokens=120,
+        )
+        return resp.choices[0].message.content.strip()
+    except Exception as e:
+        print(f"[recommendation] Groq error: {e}")
+    return ""
+
+
 # ── Point d'entrée principal ───────────────────────────────────────────────────
 
 def get_task_recommendations(name: str, description: str) -> dict:
-    task_type = _detect_type(name, description)
-    duration  = _estimate_duration(task_type)
+    task_type  = _detect_type(name, description)
+    duration   = _estimate_duration(task_type)
+    tools      = TOOLS_BY_TYPE.get(task_type, TOOLS_BY_TYPE["default"])
+    ai_insight = _groq_task_insight(name, description, task_type, tools, duration)
 
     return {
-        "task_type":  task_type,
-        "tools":      TOOLS_BY_TYPE.get(task_type, TOOLS_BY_TYPE["default"]),
-        "parts":      PARTS_BY_TYPE.get(task_type, []),
-        "tutorials":  TUTORIALS_BY_TYPE.get(task_type, TUTORIALS_BY_TYPE["default"]),
-        "duration":   duration,
+        "task_type":   task_type,
+        "tools":       tools,
+        "parts":       PARTS_BY_TYPE.get(task_type, []),
+        "tutorials":   TUTORIALS_BY_TYPE.get(task_type, TUTORIALS_BY_TYPE["default"]),
+        "duration":    duration,
+        "ai_insight":  ai_insight,
+        "ai_enhanced": bool(ai_insight),
     }

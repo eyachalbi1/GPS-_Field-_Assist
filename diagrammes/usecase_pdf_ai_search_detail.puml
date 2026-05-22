@@ -1,0 +1,15 @@
+@startuml Sprint3 AI Search Detail
+!theme plain
+actor "Technicien" 
+rectangle "pdf_ai_service.py" {
+  usecase "build_index() auto-start" as UC1
+  usecase "search(query, top_k=8)" as UC2
+  usecase "answer(question) TF-IDF+Groq" as UC3
+}
+UC1 --> "fetch_pdf_list()" : API /files or local
+UC1 --> "_extract_pdf_bytes(pdfplumber)" 
+UC1 --> "TfidfVectorizer ngram(1,3)"
+UC2 ..> UC3 : <<include>>
+UC3 --> "Groq llama-3.3-70b" : system_prompt français précis
+@enduml
+

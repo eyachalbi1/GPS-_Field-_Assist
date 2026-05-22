@@ -1,0 +1,77 @@
+@startuml sequence_overview
+!theme plain
+skinparam shadowing false
+skinparam defaultTextAlignment center
+skinparam wrapWidth 200
+
+' === STYLE ===
+skinparam Sequence {
+  ArrowColor #2C3E50
+  ActorBorderColor #D4A017
+  ActorBackgroundColor #FFF9E6
+  LifeLineBorderColor #95A5A6
+  ParticipantBorderColor #2980B9
+  ParticipantBackgroundColor #E8F4FD
+}
+
+title GPS Field Assist - Sprint 1\nVue d'Ensemble du Workflow de Diagnostic
+
+actor "Technicien" as tech
+participant "App Flutter" as app
+participant "Service SMS" as sms
+participant "Boitier GPS" as gps
+
+== Phase 1 : Initialisation ==
+tech -> app : Selectionne boitier
+activate app
+app -> app : Charge profil commandes
+app --> tech : UI prete
+
+== Phase 2 : Diagnostic Automatise ==
+loop 7 Etapes sequentielles
+  tech -> app : Lancer etape
+  app -> sms : Envoyer commande
+  activate sms
+  sms -> gps : Transmission GSM
+  activate gps
+  gps --> sms : Reponse SMS
+  deactivate gps
+  sms --> app : Donnees parsees
+  deactivate sms
+  app --> tech : Resultat etape [OK/KO]
+end
+
+alt Erreur detectee
+  app -> sms : Correction automatique
+  activate sms
+  sms -> gps : Nouvelle commande
+  activate gps
+  gps --> sms : Confirmation
+  deactivate gps
+  sms --> app : Correction OK
+  deactivate sms
+  app --> tech : Etape corrigee
+end
+
+== Phase 3 : Synthese ==
+app -> app : Compiler rapport
+app --> tech : Diagnostic complet
+
+deactivate app
+
+note over tech, app
+  <b>Performances :</b>
+  • Duree moyenne : 28s
+  • Fiabilite : 95.2%
+  • Retry auto : x3
+end note
+
+note over sms, gps
+  <b>Parametres :</b>
+  • Timeout : 60s
+  • Polling : 3-4s
+  • Commandes : 20+
+end note
+
+@enduml
+

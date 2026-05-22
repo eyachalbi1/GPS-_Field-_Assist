@@ -210,19 +210,24 @@ class _SmsHistoryScreenState extends State<SmsHistoryScreen> {
                 final confirm = await showDialog<bool>(
                   context: context,
                   builder: (context) => AlertDialog(
-                    title: const Text('Effacer l\'historique'),
+                    backgroundColor: const Color(0xFF0066FF),
+                    title: const Text('Effacer l\'historique',
+                        style: TextStyle(color: Colors.white)),
                     content: const Text(
-                        'Voulez-vous vraiment effacer tout l\'historique ?'),
+                        'Voulez-vous vraiment effacer tout l\'historique ?',
+                        style: TextStyle(color: Colors.white)),
                     actions: [
                       TextButton(
                         onPressed: () => Navigator.pop(context, false),
-                        child: const Text('Annuler'),
+                        child: const Text('Annuler',
+                            style: TextStyle(color: Colors.white70)),
                       ),
                       ElevatedButton(
                         onPressed: () => Navigator.pop(context, true),
                         style: ElevatedButton.styleFrom(
                             backgroundColor: const Color(0xFFDC143C)),
-                        child: const Text('Effacer'),
+                        child: const Text('Effacer',
+                            style: TextStyle(color: Colors.white)),
                       ),
                     ],
                   ),

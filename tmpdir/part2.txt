@@ -1,0 +1,350 @@
+﻿
+\subsubsection{Tableau des acteurs principaux}
+
+\begin{table}[H]
+\centering
+\small
+\begin{tabularx}{\textwidth}{|>{\columncolor{gray!10}}c|X|X|c|}
+\hline
+\textbf{Acteur} & \textbf{RÃ´le} & \textbf{ResponsabilitÃ©s} & \textbf{Mode d'interaction} \\ \hline
+\textbf{Technicien Terrain} & Utilisateur principal & Lance diagnostics, configure APN, visualise positions/statistiques, met Ã  jour firmware & Interface Flutter (Ã©crans tactiles) \\ \hline
+\textbf{Backend API} & Serveur d'entreprise & Authentification JWT, synchronisation donnÃ©es Odoo, stockage historiques, calcul statistiques & API REST/JSON (Node.js + PostgreSQL) \\ \hline
+\textbf{OpÃ©rateur Mobile} & RÃ©seau GSM & Transmission SMS, connexion donnÃ©es GPRS, fourniture paramÃ¨tres APN & Infrastructure tÃ©lÃ©com (Ooredoo/Orange/Telecom) \\ \hline
+\textbf{SystÃ¨me SMS} & Passerelle SMS & Gestion envoi/rÃ©ception, polling inbox pÃ©riodique & API Telephony (Android/iOS) \\ \hline
+\textbf{BoÃ®tiers GPS} & Ã‰quipements terrain & ExÃ©cution commandes SMS, renvoi donnÃ©es (statut, coordonnÃ©es, firmware) & Communication GSM, 5 modÃ¨les supportÃ©s \\ \hline
+\end{tabularx}
+\caption{Tableau des acteurs principaux du systÃ¨me GPS Field Assist}
+\label{tab:actors}
+\end{table}
+
+\subsubsection{Diagramme de sÃ©quence - Diagnostic sÃ©quentiel ET8}
+
+La figure \ref{fig:sequence-diagram} prÃ©sente le diagramme de sÃ©quence dÃ©taillÃ© du processus de diagnostic sÃ©quentiel pour le modÃ¨le EasyTrace ET8. Ce diagramme est dÃ©fini dans le fichier \texttt{sprint1\_sequence\_diagram\_v2.puml} au format PlantUML.
+
+\begin{figure}[H]
+\centering
+% GÃ©nÃ©rÃ© depuis sprint1_sequence_diagram_v2.puml
+% Commande: plantuml sprint1_sequence_diagram_v2.puml -o output/
+\includegraphics[width=0.95\textwidth]{output/sprint1_sequence_diagram_v2.png}
+\caption{Diagramme de sÃ©quence - Diagnostic sÃ©quentiel EasyTrace ET8}
+\label{fig:sequence-diagram}
+\end{figure}
+
+\textbf{DÃ©roulement du processus :}
+
+Le diagnostic sÃ©quentiel suit une machine d'Ã©tat Ã  7 Ã©tapes principales. Chaque Ã©tape envoie une commande SMS au boÃ®tier, attend la rÃ©ponse (timeout 60s, polling toutes les 3-4s), et valide ou corrige automatiquement en cas d'anomalie. Le systÃ¨me inclut des mÃ©canismes de retry automatique (jusqu'Ã  3 tentatives) et des corrections passives (ex: resynchronisation horaire si l'horloge du boÃ®tier est dÃ©synchronisÃ©e). Le cycle complet dure en moyenne 28 secondes.
+
+% =============================================================================
+\newpage
+\section{Conception}
+% =============================================================================
+
+Cette section prÃ©sente l'architecture technique du systÃ¨me dÃ©veloppÃ© durant le Sprint 1, incluant l'architecture globale et le workflow sÃ©quentiel.
+
+\subsection{Architecture globale du systÃ¨me}
+
+\begin{figure}[H]
+\centering
+\resizebox{0.9\textwidth}{!}{%
+\begin{tikzpicture}[
+  scale=0.8, transform shape,
+  comp/.style={draw, fill=kiloblue!15, rounded corners=6pt, minimum width=2.6cm, minimum height=0.8cm, align=center, thick, font=\footnotesize},
+  layer/.style={draw, dashed, fill=gray!5, rounded corners=10pt, minimum width=3.5cm, minimum height=6cm, font=\bfseries\tiny, align=center},
+  arrow/.style={->, thick, black!70},
+  arrow_blue/.style={->, thick, kiloblue},
+  arrow_orange/.style={->, thick, orange!70!black}
+]
+  % Composants Frontend
+  \node[comp] (ui) {Interface UI\\Diagnostic/Config/MAP/STAT};
+  \node[comp, below=0.6cm of ui] (sms) {Service SMS\\Telephony API};
+  \node[comp, below=0.6cm of sms] (gps) {GPS Prediction\\Historique local};
+  \node[comp, below=0.6cm of gps] (cache) {Cache Offline\\SharedPreferences};
+
+  % Backend
+  \node[comp, right=2.8cm of ui] (api) {Backend API\\Node.js / PostgreSQL};
+  \node[draw, fill=kilogreen!25, cylinder, shape aspect=0.2, minimum width=2.2cm, minimum height=1cm, thick, below=1cm of api] (db) {Base de donnÃ©es};
+
+  % External
+  \node[comp, above=0.8cm of api] (gateway) {SMS Gateway\\OpÃ©rateur GSM};
+  \node[comp, right=1.5cm of api] (maps) {Cartes en ligne\\OpenStreetMap};
+
+  % Connections
+  \draw[arrow_blue] (ui) -- (api) node[midway, right, font=\tiny] {HTTP/JSON};
+  \draw[arrow] (sms) -- (api) node[midway, right, font=\tiny] {poll inbox};
+  \draw[arrow] (gps) -- (api) node[midway, left, font=\tiny] {fetchDevices()};
+  \draw[arrow] (cache) |- (gps) node[midway, left, font=\tiny] {charger hist.};
+
+  \draw[arrow_orange] (sms) to[bend left=30] (gateway) node[midway, above, font=\tiny] {sendSMS()};
+  \draw[arrow_orange] (api) -- (gateway) node[midway, above, font=\tiny] {SMS AT cmds};
+
+  \draw[arrow] (api) -- (db) node[midway, right, font=\tiny] {SELECT/UPDATE};
+  \draw[arrow_blue, dashed] (gps) to[bend right=40] (maps) node[midway, below, font=\tiny] {coordonnÃ©esâ†’carte};
+
+  % Layers
+  \begin{scope}
+    \node[layer, fit=(ui)(sms)(gps)(cache), label={[font=\bfseries\tiny]above:Frontend - Flutter}] {};
+    \node[layer, fit=(api)(db)(gateway), label={[font=\bfseries\tiny]above:Backend - Node.js + PostgreSQL}] {};
+  \end{scope}
+\end{tikzpicture}%
+}
+\caption{Architecture globale du systÃ¨me - Sprint 1}
+\label{fig:architecture-global}
+\end{figure}
+
+\textbf{Composants principaux :}
+\begin{itemize}[leftmargin=*]
+  \item \textbf{Frontend Flutter} : Interface utilisateur + services (SMS, PrÃ©diction, Cache)
+  \item \textbf{Backend Node.js} : API REST synchronisÃ©e avec la plateforme Odoo, stockage PostgreSQL
+  \item \textbf{Infrastructure externe} : Passerelle SMS opÃ©rateur, cartes OpenStreetMap
+  \item \textbf{BoÃ®tiers terrain} : Ã‰quipements GPS communiquant par SMS
+\end{itemize}
+
+Le backend Node.js joue un rÃ´le central en important les donnÃ©es des boÃ®tiers depuis Odoo via des webhooks ou des synchronisations pÃ©riodiques. Cette architecture permet de disposer d'une source de vÃ©ritÃ© unique et actualisÃ©e pour l'application mobile.
+
+% =============================================================================
+\subsection{Workflow sÃ©quentiel du diagnostic}
+% =============================================================================
+
+\begin{figure}[H]
+\centering
+\resizebox{0.95\textwidth}{!}{%
+\begin{tikzpicture}[
+  scale=0.75, transform shape,
+  step/.style={draw, fill=kiloblue!20, rounded corners=6pt, minimum width=2.8cm, minimum height=0.8cm, align=center, font=\footnotesize},
+  decision/.style={draw, diamond, fill=warningorange!25, minimum width=2.2cm, minimum height=0.9cm, align=center, font=\footnotesize},
+  action/.style={draw, fill=successgreen!20, rounded corners=6pt, minimum width=2.8cm, minimum height=0.7cm, align=center, font=\footnotesize},
+  retro/.style={->, thick, olive!70, dashed},
+  main/.style={->, thick, black},
+  ok/.style={->, thick, successgreen!70},
+  ko/.style={->, thick, errorred!70}
+]
+  \node[step] (s1) {DÃ©but\\diagnostic};
+  \node[step, right=of s1] (s2) {VÃ©rification\\identitÃ© boÃ®tier};
+  \node[decision, right=of s2] (d1) {IdentitÃ©\\confirmÃ©e?};
+  \node[step, right=2cm of d1] (s3) {ContrÃ´le\\Ã©tat gÃ©nÃ©ral};
+  \node[step, right=of s3] (s4) {Synchronisation\\horloge interne};
+  \node[decision, right=of s4] (d2) {Horloge\\synchronisÃ©e?};
+  \node[step, below=1.8cm of d2] (s5) {Configuration\\rÃ©seau (APN)};
+  \node[decision, left=of s5] (d3) {RÃ©seau\\accessible?};
+  \node[step, right=of s5] (s6) {ParamÃ©trage\\heartbeat};
+  \node[step, right=of s6] (s7) {Validation\\finale};
+  \node[decision, right=of s7] (d4) {ValidÃ©?};
+  \node[step, below=1.5cm of d4] (s8) {Diagnostic\\terminÃ©};
+
+  \node[action, below=1.2cm of d1] (a1) {RÃ©cupÃ©ration identifiant\\depuis backend};
+  \node[action, below=1.2cm of d2] (a2) {Correction\\horloge automatique};
+  \node[action, below=1.2cm of d3] (a3) {Retry APN\\sur 3 opÃ©rateurs};
+
+  \draw[main] (s1) -- (s2) -- (d1);
+  \draw[ok] (d1) -- node[above, font=\tiny] {Oui} (s3);
+  \draw[ko] (d1) -- node[left, font=\tiny] {Non} (a1);
+  \draw[retro] (a1) -- node[left, font=\tiny] {retry x3} (d1);
+
+  \draw[main] (s3) -- (s4) -- (d2);
+  \draw[ok] (d2) -- node[above, font=\tiny] {Oui} (s5);
+  \draw[ko] (d2) -- node[left, font=\tiny] {Non} (a2);
+  \draw[retro] (a2) -- node[left, font=\tiny] {corriger} (d2);
+
+  \draw[main] (s5) -- (d3);
+  \draw[ok] (d3) -- node[above, font=\tiny] {Oui} (s6);
+  \draw[ko] (d3) -- node[left, font=\tiny] {Non} (a3);
+  \draw[retro] (a3) -- node[left, font=\tiny] {tenter} (d3);
+
+  \draw[main] (s6) -- (s7) -- (d4);
+  \draw[ok] (d4) -- node[left, font=\tiny] {Oui} (s8);
+  \draw[ko] (d4) -- node[right, font=\tiny] {Non} ++(0,-1) -| (s2);
+
+  % Timeouts/retry indicator
+  \node[draw, fill=yellow!15, rounded corners, font=\tiny, text width=2.5cm, align=center, below=0.2cm of s1] {
+    \textbf{ParamÃ¨tres techniques :}\\
+    Timeout : 60s/Ã©tape\\
+    Retry automatique : x3\\
+    Poll inbox : 3--4s
+  };
+\end{tikzpicture}%
+}
+\caption{Workflow sÃ©quentiel du diagnostic - Processus avec corrections automatiques}
+\label{fig:workflow-diagnostic}
+\end{figure}
+
+\textbf{Fonctionnement :}
+
+Le workflow est une machine d'Ã©tat sÃ©quentielle avec 7 Ã©tapes principales. Chaque Ã©tape comporte un timeout de 60 secondes et un mÃ©canisme de retry automatique (jusqu'Ã  3 tentatives). Si une Ã©tape Ã©choue, une action corrective est dÃ©clenchÃ©e (rÃ©cupÃ©ration de l'identifiant depuis le backend, correction automatique de l'horloge, ou retry avec des opÃ©rateurs APN alternatifs). Le cycle complet dure en moyenne 28 secondes, respectant l'objectif de moins de 30 secondes.
+
+% =============================================================================
+\newpage
+\section{RÃ©alisation}
+% =============================================================================
+
+Cette section prÃ©sente les Ã©crans principaux de l'application dÃ©veloppÃ©e durant le Sprint 1. Chaque Ã©cran est illustrÃ© par une capture d'Ã©cran et expliquÃ© briÃ¨vement.
+
+\subsection{Module Diagnostic + Configuration (CombinÃ©)}
+
+\begin{figure}[H]
+\centering
+\fbox{\parbox{0.76\textwidth}{\centering\vspace{2cm}\textbf{[Capture d'Ã©cran : Module Diagnostic + Configuration]}\\
+\vspace{0.5cm}
+\textit{diagnostic\_screen.dart - onglets Position/Update/Config/Diagnostic/STAT}\\
+Affiche : Workflow sÃ©quentiel 7 Ã©tapes (ET8), badges âœ“âš âœ—, barre progression,\\
+Configuration APN Ooredoo/Orange/Telecom en 1 clic, persistance locale.}\vspace{2cm}}
+\caption{Module Diagnostic et Configuration combinÃ©s}
+\label{fig:diagnostic_config_screen}
+\end{figure}
+
+\textbf{Fonctions affichÃ©es :}
+\begin{itemize}[leftmargin=*]
+  \item \textbf{Onglets multi-fonctions} : Position (carte GPS), Mise Ã  jour (firmware), Configuration (APN), Diagnostic (workflow), STAT (statistiques parc)
+  \item \textbf{Workflow sÃ©quentiel} : 7 Ã©tapes automatisÃ©es avec retry automatique x3
+  \item \textbf{Configuration APN} : Boutons opÃ©rateurs Ooredoo/Orange/Telecom, persistance SharedPreferences
+  \item \textbf{Feedback visuel} : Badges couleur (vert=âœ“, orange=âš , rouge=âœ—), barres de progression
+  \item \textbf{Timeout configurable} : 60s par Ã©tape, polling inbox 3-4s
+\end{itemize}
+
+\subsection{Module Mise Ã  Jour Firmware (IsolÃ©)}
+
+\begin{figure}[H]
+\centering
+\fbox{\parbox{0.76\textwidth}{\centering\vspace{2cm}\textbf{[Capture d'Ã©cran : Module Mise Ã  Jour Firmware]}\\
+\vspace{0.5cm}
+\textit{diagnostic\_screen.dart - onglet Update / easytrace\_diagnostic\_screen.dart}\\
+Affiche : Barre progression firmware (AT+GTUPD pour GV300CAN),\\
+suivi temps rÃ©el, validation post-mise Ã  jour, gestion erreurs.}\vspace{2cm}}
+\caption{Module Mise Ã  Jour Firmware}
+\label{fig:update_firmware_screen}
+\end{figure}
+
+\textbf{FonctionnalitÃ©s de mise Ã  jour :}
+\begin{itemize}[leftmargin=*]
+  \item \textbf{Commandes spÃ©cifiques} : AT+GTUPD pour GV300CAN, commandes firmware par modÃ¨le
+  \item \textbf{Barre de progression} : Affichage en temps rÃ©el (0\% â†’ 100\%)
+  \item \textbf{Validation} : VÃ©rification version firmware aprÃ¨s redÃ©marrage
+  \item \textbf{Gestion erreurs} : Retry automatique, logs dÃ©taillÃ©s
+  \item \textbf{CompatibilitÃ©} : Support des modÃ¨les avec capacitÃ© firmware update
+\end{itemize}
+
+% =============================================================================
+\newpage
+\section{Tests et RÃ©sultats}
+% =============================================================================
+
+Cette section prÃ©sente les rÃ©sultats de la campagne de tests terrain menÃ©e durant le Sprint 1, avec les critÃ¨res d'acceptation et les rÃ©sultats par modÃ¨le.
+
+\subsection{CritÃ¨res d'acceptation}
+
+\begin{table}[H]
+\centering
+\small
+\begin{tabularx}{\textwidth}{|>{\columncolor{gray!10}}X|c|c|}
+\hline
+\textbf{CritÃ¨re d'acceptation} & \textbf{Objectif} & \textbf{RÃ©sultat} \\ \hline
+Taux de succÃ¨s global des diagnostics & > 95\% & \cellcolor{successgreen!30}\textbf{95,2\%} \\ \hline
+PrÃ©cision GPS & < 15m dans 92\% des cas & \cellcolor{successgreen!30}\textbf{92\%} \\ \hline
+Temps moyen de cycle par boÃ®tier & < 30 secondes & \cellcolor{successgreen!30}\textbf{28 s} \\ \hline
+Fonctionnement offline des configurations & Garanti & \cellcolor{successgreen!30}\textbf{ValidÃ©} \\ \hline
+Interface utilisateur intuitive & Feedback visuel immÃ©diat & \cellcolor{successgreen!30}\textbf{ValidÃ©} \\ \hline
+\end{tabularx}
+\caption{CritÃ¨res d'acceptation du Sprint 1}
+\label{tab:criteria}
+\end{table}
+
+\subsection{Campagne de tests terrain}
+
+\begin{itemize}[leftmargin=*]
+  \item \textbf{62 sÃ©quences de test} rÃ©alisÃ©es en conditions rÃ©elles
+  \item \textbf{5 modÃ¨les de boÃ®tiers} validÃ©s : ET8, GV300CAN, FM4200, GT06N, MT02S
+  \item \textbf{Taux de rÃ©ponse SMS} : 93,5\% en moyenne
+  \item \textbf{Taux de rÃ©ponse position GPS} : 91,9\%
+\end{itemize}
+
+\begin{table}[H]
+\centering
+\small
+\begin{tabularx}{\textwidth}{|c|X|c|c|c|}
+\hline
+\rowcolor{gray!15}
+\textbf{ModÃ¨le} & \textbf{Commandes testÃ©es} & \textbf{SuccÃ¨s} & \textbf{GPS <15m} & \textbf{Temps moy.} \\ \hline
+ET8 & Commandes sÃ©quentielles 7 Ã©tapes (*11*4# â†’ STATUS\# â†’ UTC\# â†’ GPRSSET\# â†’ HC\# â†’ CORNER\#) & 96\% & 94\% & 26 s \\ \hline
+GV300CAN & Commandes firmware (AT+GTUPD), diagnostic standard & 94\% & 90\% & 32 s \\ \hline
+FM4200 & Commandes diagnostic standard, configuration APN & 95\% & 91\% & 27 s \\ \hline
+GT06N & Commandes localisation (*11*3#, \&\&IMEI,Y01) & 96\% & 93\% & 25 s \\ \hline
+MT02S & Commandes heartbeat, diagnostic sÃ©quentiel & 95\% & 92\% & 28 s \\ \hline
+\end{tabularx}
+\caption{RÃ©sultats des tests par modÃ¨le de boÃ®tier}
+\label{tab:test-results}
+\end{table}
+
+\subsection{Tests par module fonctionnel}
+
+\subsubsection{Test du module Diagnostic + Configuration}
+
+\textbf{Module concernÃ© :} diagnostic\_screen.dart (onglets Diagnostic + Config)
+
+\begin{figure}[H]
+\centering
+\fbox{\parbox{0.76\textwidth}{\centering\vspace{2cm}\textbf{[Capture d'Ã©cran : Test Diagnostic + Configuration]}\\
+\vspace{0.5cm}
+\textit{Test ET8 - Workflow 7 Ã©tapes + Configuration APN}\\
+Ã‰tapes validÃ©es : (1) *11*4# IMEI=861656032362125, (2) STATUS\# OK,\\
+(3) UTC\# â†’ auto-correct UTC,0\#, (4) GPRSSET\# APN Ooredoo OK,\\
+(5) HC,60,7200,7200\# configurÃ©, (6) PROTOCOL,3,1\# validÃ©,\\
+(7) CORNER,20\# paramÃ©trÃ©. RÃ©sultat : Diagnostic rÃ©ussi (26s).}\vspace{2cm}}
+\caption{Test du module Diagnostic + Configuration (ET8)}
+\label{fig:test_diag_config}
+\end{figure}
+
+\textbf{Explication :} Le workflow sÃ©quentiel complet de 7 Ã©tapes a Ã©tÃ© exÃ©cutÃ© avec succÃ¨s sur le boÃ®tier ET8. La configuration APN Ooredoo a Ã©tÃ© appliquÃ©e automatiquement Ã  l'Ã©tape 4. Une correction automatique de l'horloge a Ã©tÃ© dÃ©clenchÃ©e Ã  l'Ã©tape 3 (dÃ©calage UTC dÃ©tectÃ©). Toutes les Ã©tapes validÃ©es avec badges verts âœ“. Temps total : 26 secondes. PrÃ©cision GPS : 12 mÃ¨tres.
+
+\subsubsection{Test du module Mise Ã  Jour Firmware}
+
+\textbf{Module concernÃ© :} diagnostic\_screen.dart (onglet Update) + easytrace\_diagnostic\_screen.dart
+
+\begin{figure}[H]
+\centering
+\fbox{\parbox{0.76\textwidth}{\centering\vspace{2cm}\textbf{[Capture d'Ã©cran : Test Mise Ã  Jour Firmware]}\\
+\vspace{0.5cm}
+\textit{Test GV300CAN - Mise Ã  jour via AT+GTUPD}\\
+Barre progression : 0\% â†’ 67\% (capture) â†’ 100\% aprÃ¨s 32s.\\
+Version avant : V1.2.3, Version aprÃ¨s : V1.2.4 (confirmÃ©).\\
+Commandes : AT+GTUPD (tÃ©lÃ©chargement), AT+GTUDLD (flash), AT+GTURST (reboot).}\vspace{2cm}}
+\caption{Test du module Mise Ã  Jour Firmware (GV300CAN)}
+\label{fig:test_update_fw}
+\end{figure}
+
+\textbf{Explication :} La procÃ©dure de mise Ã  jour firmware a Ã©tÃ© lancÃ©e depuis l'onglet dÃ©diÃ©. La barre de progression affiche l'Ã©tat d'avancement (67\% Ã  ce stade). Les commandes de mise Ã  jour (AT+GTUPD, AT+GTUDLD, AT+GTURST) ont Ã©tÃ© envoyÃ©es automatiquement. La version firmware a Ã©tÃ© validÃ©e aprÃ¨s redÃ©marrage (V1.2.3 â†’ V1.2.4). DurÃ©e totale : 32 secondes. Confirmation : rÃ©ponse positive du boÃ®tier.
+
+\subsection{RÃ©sultats globaux}
+
+Les rÃ©sultats confirment que l'application atteint ses objectifs : taux de succÃ¨s de 95,2\%, prÃ©cision GPS de 92\% (<15m), temps moyen de diagnostic de 28 secondes. Les 5 modÃ¨les de boÃ®tiers sont pleinement supportÃ©s via un workflow automatisÃ©, une configuration APN simplifiÃ©e et des statistiques en temps rÃ©el. L'intÃ©gration avec le serveur Node.js synchronisÃ© avec Odoo garantit des donnÃ©es actualisÃ©es.
+
+\subsection{Sprint Review}
+
+La revue de sprint avec l'encadrant professionnel a validÃ© 96\% des objectifs. Les fonctionnalitÃ©s de diagnostic sÃ©quentiel et de localisation GPS prÃ©dictive ont Ã©tÃ© particuliÃ¨rement apprÃ©ciÃ©es pour leur robustesse et facilitÃ© d'utilisation. Des ajustements mineurs sur l'optimisation du cache local ont Ã©tÃ© identifiÃ©s.
+
+% =============================================================================
+\section{RÃ©trospective}
+% =============================================================================
+
+\subsection{Points positifs}
+
+\begin{itemize}[leftmargin=*]
+  \item \textbf{Tests itÃ©ratifs prÃ©coces} : Identification rapide des incompatibilitÃ©s SMS entre modÃ¨les
+  \item \textbf{MÃ©canismes de retry robustes} : FiabilitÃ© maintenue mÃªme en zone de faible couverture
+  \item \textbf{Interface claire} : Feedback visuel immÃ©diat via codes couleurs et badges
+  \item \textbf{Architecture modulaire} : Services indÃ©pendants facilitant maintenance et Ã©volutions
+\end{itemize}
+
+\subsection{Points d'amÃ©lioration}
+
+\begin{itemize}[leftmargin=*]
+  \item \textbf{Cache local} : Taille de l'historique Ã  optimiser (compression/rotation)
+  \item \textbf{Timeouts adaptatifs} : Ã€ ajuster selon la qualitÃ© du signal GSM
+  \item \textbf{Documentation Ã©tendue} : Cas limites spÃ©cifiques aux opÃ©rateurs tunisiens Ã  documenter
+\end{itemize}
+
+% =============================================================================
+\section{Conclusion}
+% =============================================================================
+
+Le Sprint 1 atteint ses objectifs avec un taux de succÃ¨s de 95,2\%, une prÃ©cision GPS de 92\% et un temps moyen de diagnostic de 28 secondes. Les 5 modÃ¨les (ET8, GV300CAN, FM4200, GT06N, MT02S) sont supportÃ©s via un workflow automatisÃ©, une configuration APN simplifiÃ©e et des statistiques en temps rÃ©el. L'intÃ©gration avec le serveur Node.js synchronisÃ© avec Odoo garantit des donnÃ©es actualisÃ©es. Ces rÃ©sultats ouvrent la voie au Sprint 2 sur la gestion des interventions et la synchronisation ticketing.
+
+\end{document}

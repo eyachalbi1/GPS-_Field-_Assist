@@ -1,46 +1,192 @@
-version: '3.9'
+version: '3.8'
 
 services:
 
+  # ── Base de données PostgreSQL ──────────────────────────────────────────────
   db:
     image: postgres:15-alpine
-    container_name: gps_field_db
+    container_name: gps_postgres
     restart: unless-stopped
     environment:
       POSTGRES_DB: tunav_gps_tracking_db
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgre
+      POSTGRES_PASSWORD: postgres
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      - ./logs:/var/log/postgresql
+      - /var/backups/gps-field-assist:/backups
     ports:
-      - "5432:5432"
+      - "5433:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 10s
       timeout: 5s
       retries: 5
+    networks:
+      - gps-network
 
+  # ── Backend FastAPI ─────────────────────────────────────────────────────────
   backend:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    container_name: gps_field_backend
+    container_name: gps_backend
     restart: unless-stopped
+    ports:
+      - "8001:8000"
     environment:
       DB_HOST: db
       DB_NAME: tunav_gps_tracking_db
       DB_USER: postgres
-      DB_PASSWORD: postgre
+      DB_PASSWORD: postgres
       DB_PORT: 5432
-      SECRET_KEY: tunav_gps_secret_key_2024
-    ports:
-      - "8000:8000"
-    volumes:
-      - ./backend/static/uploads:/app/static/uploads
-      - ./backend/static/modules:/app/static/modules
+      SECRET_KEY: ${SECRET_KEY:-tunav_gps_secret_key_2024}
+    env_file:
+      - ./backend/.env
     depends_on:
       db:
         condition: service_healthy
+    volumes:
+      - ./backend/static:/app/static
+      - ./logs:/app/logs
+      - /var/backups/gps-field-assist:/backups:ro
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - gps-network
+
+  # ── Jenkins CI/CD ───────────────────────────────────────────────────────────
+  jenkins:
+    build:
+      context: ./jenkins
+      dockerfile: Dockerfile
+    container_name: gps_jenkins
+    restart: unless-stopped
+    ports:
+      - "9090:8080"
+      - "50000:50000"
+    volumes:
+      - jenkins_home:/var/jenkins_home
+      - /var/run/docker.sock:/var/run/docker.sock
+      - .:/workspace
+      - ./logs:/var/log/jenkins
+    environment:
+      JAVA_OPTS: "-Djenkins.install.runSetupWizard=false"
+    networks:
+      - gps-network
+
+  # ── Prometheus ────────────────────────────────────────────────────────────
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: gps_prometheus
+    restart: unless-stopped
+    ports:
+      - "9091:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.retention.time=15d'
+    networks:
+      - gps-network
+
+  # ── Grafana ──────────────────────────────────────────────────────────────────
+  grafana:
+    image: grafana/grafana:latest
+    container_name: gps_grafana
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:-admin123}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+    depends_on:
+      - prometheus
+    networks:
+      - gps-network
+
+  # ── SonarQube ────────────────────────────────────────────────────────────────
+  sonarqube:
+    image: sonarqube:10-community
+    container_name: gps_sonarqube
+    restart: unless-stopped
+    ports:
+      - "9000:9000"
+    environment:
+      SONAR_JDBC_URL: jdbc:postgresql://sonar_db:5432/sonarqube
+      SONAR_JDBC_USERNAME: sonar
+      SONAR_JDBC_PASSWORD: sonar
+    volumes:
+      - sonarqube_data:/opt/sonarqube/data
+      - sonarqube_logs:/opt/sonarqube/logs
+      - sonarqube_extensions:/opt/sonarqube/extensions
+    depends_on:
+      sonar_db:
+        condition: service_healthy
+    networks:
+      - gps-network
+
+  sonar_db:
+    image: postgres:15-alpine
+    container_name: gps_sonar_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: sonarqube
+      POSTGRES_USER: sonar
+      POSTGRES_PASSWORD: sonar
+    volumes:
+      - sonar_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sonar"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - gps-network
+
+  # ── Nginx (SSL Termination) ─────────────────────────────────────────────────
+  nginx:
+    image: nginx:alpine
+    container_name: gps_nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/ssl:/etc/nginx/ssl:ro
+      - ./logs:/var/log/nginx
+    depends_on:
+      - backend
+    networks:
+      - gps-network
 
 volumes:
   postgres_data:
+    driver: local
+  jenkins_home:
+    driver: local
+  prometheus_data:
+    driver: local
+  grafana_data:
+    driver: local
+  sonarqube_data:
+    driver: local
+  sonarqube_logs:
+    driver: local
+  sonarqube_extensions:
+    driver: local
+  sonar_db_data:
+    driver: local
+
+networks:
+  gps-network:
+    driver: bridge

@@ -13,7 +13,7 @@ enum MobileOperator {
 
 class Config {
   // Login server (PC local)
-  static const String defaultIp = '192.168.100.4';
+  static const String defaultIp = '192.168.43.90';
   static const String defaultPort = '8000';
 
   // API server (serveur externe)

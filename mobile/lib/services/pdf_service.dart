@@ -11,7 +11,7 @@ class PdfService {
   static final Map<String, Uint8List> _cache = {};
   static const _listKey = 'cached_pdf_list';
 
-  static String get _base => Config.apiBaseUrl;
+  static String get _base => Config.apiBaseUrl;  // 41.226.24.13:5000
   static String get baseUrl => Config.apiBaseUrl;
 
   static Future<Directory> get _pdfDir async {
@@ -30,6 +30,7 @@ class PdfService {
 
       if (response.statusCode == 200) {
         final dynamic decoded = jsonDecode(response.body);
+        // API returns {"files": ["name.pdf", ...]}  — plain strings
         final List<dynamic> raw =
             decoded is List ? decoded : (decoded['files'] as List? ?? []);
         final list = raw.map<Map<String, String>>((item) {
@@ -39,7 +40,6 @@ class PdfService {
           return {'filename': filename, 'name': filename};
         }).where((e) => e['filename']!.isNotEmpty).toList();
 
-        // Persist list
         final prefs = await SharedPreferences.getInstance();
         await prefs.setString(_listKey, jsonEncode(list));
         return list;
@@ -47,7 +47,6 @@ class PdfService {
     } catch (e) {
       debugPrint('PdfService.fetchPdfList error: $e');
     }
-    // Fallback to cached list
     return await _loadCachedList();
   }
 
@@ -69,27 +68,28 @@ class PdfService {
 
     // Check disk cache
     final dir = await _pdfDir;
-    final file = File('${dir.path}/$filename');
+    final safe = filename.replaceAll('/', '_').replaceAll('\\', '_');
+    final file = File('${dir.path}/$safe');
     if (await file.exists()) {
       final bytes = await file.readAsBytes();
       _cache[filename] = bytes;
       return bytes;
     }
 
-    // Download and persist
-    final url = directUrl ?? '$_base/api/files/download/$filename';
+    // API uses /api/download/{filename}  (not /api/files/download/)
+    final encoded = Uri.encodeComponent(filename);
+    final url = directUrl ?? '$_base/api/download/$encoded';
     try {
       final response = await http
           .get(Uri.parse(url))
           .timeout(const Duration(seconds: 30));
-
       if (response.statusCode == 200 && response.bodyBytes.isNotEmpty) {
         await file.writeAsBytes(response.bodyBytes);
         _cache[filename] = response.bodyBytes;
         return response.bodyBytes;
       }
     } catch (e) {
-      debugPrint('PDF fetch error: $filename — $e');
+      debugPrint('PDF fetch error [$url]: $e');
     }
     return null;
   }

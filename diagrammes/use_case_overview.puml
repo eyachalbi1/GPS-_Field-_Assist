@@ -1,0 +1,93 @@
+@startuml use_case_overview
+!theme plain
+skinparam shadowing false
+skinparam defaultTextAlignment center
+skinparam wrapWidth 180
+
+' === STYLE ===
+skinparam Rectangle {
+  BackgroundColor #F0F8FF
+  BorderColor #2C3E50
+  RoundCorner 20
+}
+skinparam Actor {
+  BackgroundColor #FFF9E6
+  BorderColor #D4A017
+  RoundCorner 12
+}
+skinparam UseCase {
+  BackgroundColor White
+  BorderColor #2980B9
+  RoundCorner 8
+  FontSize 11
+}
+skinparam Arrow {
+  Color #2C3E50
+  FontSize 10
+}
+
+title GPS Field Assist - Sprint 1\nVue Simplifiee des Cas d'Utilisation
+
+' === ACTEUR PRINCIPAL ===
+actor "Technicien\nTerrain" as tech
+
+rectangle "GPS Field Assist" {
+
+  usecase "Consulter Liste\nBoitiers" as UC1
+  usecase "Lancer Diagnostic\nSequentiel" as UC2
+  usecase "Obtenir Position\nGPS" as UC3
+  usecase "Configurer APN\nOperateur" as UC4
+  usecase "Mettre a Jour\nFirmware" as UC5
+  usecase "Visualiser\nStatistiques" as UC6
+
+  ' === SERVICES INTERNES ===
+  package "Services SMS" #F8F9FA {
+    usecase "Envoyer Commande" as UC_S1
+    usecase "Recevoir & Parser" as UC_S2
+    usecase "Poll Inbox" as UC_S3
+  }
+
+  package "Donnees" #F8F9FA {
+    usecase "Sync API Publique" as UC_D1
+    usecase "Stockage Local" as UC_D2
+  }
+}
+
+' === RELATIONS PRINCIPALES ===
+tech --> UC1 : "selection"
+tech --> UC2 : "lance workflow"
+tech --> UC3 : "demande position"
+tech --> UC4 : "choix operateur"
+tech --> UC5 : "lance MAJ"
+tech --> UC6 : "vue stats"
+
+' === INCLUSIONS ===
+UC2 ..> UC_S1 : "<<include>>"
+UC3 ..> UC_S1 : "<<include>>"
+UC4 ..> UC_S1 : "<<include>>"
+UC5 ..> UC_S1 : "<<include>>"
+
+UC_S1 ..> UC_S3 : "<<include>>"
+UC_S3 ..> UC_S2 : "<<include>>"
+UC_S2 ..> UC_D2 : "<<include>>"
+
+UC1 ..> UC_D1 : "<<include>>"
+UC6 ..> UC_D1 : "<<include>>"
+UC_D1 ..> UC_D2 : "<<include>>"
+
+' === NOTES ===
+note right of UC2
+  <b>Workflow 7 etapes (ET8) :</b>
+  IMEI -> STATUS -> UTC
+  -> GPRSSET -> HC -> CORNER
+  Retry auto x3 | Timeout 60s
+end note
+
+note bottom of UC4
+  <b>3 profils APN :</b>
+  Telecom / Orange / Ooredoo
+  Persistance locale
+end note
+
+@enduml
+
